@@ -1,0 +1,25 @@
+{
+  "name": "uru",
+  "version": "0.0.1",
+  "description": "virtual-dom library",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://vivsh@github.com/vivsh/uru.git"
+  },
+  "keywords": [
+    "virtual-dom",
+    "uru",
+    "javascript",
+    "dom"
+  ],
+  "author": "vivek",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/vivsh/uru/issues"
+  },
+  "homepage": "https://github.com/vivsh/uru#readme"
+}
