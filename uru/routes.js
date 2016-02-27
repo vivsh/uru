@@ -2,7 +2,39 @@
 
 var pattern = require("./pattern"), utils = require("./utils");
 
-var roots = [], routeMap = {};
+var roots = [], routeMap = {}, monitorRoutes = false;
+
+
+function handleRoute(){
+    "use strict";
+    var pathname = window.location.pathname;
+    if(pathname.name.charAt(0) !== '/'){
+        pathname = "/" + pathname;
+    }
+    var result = match(pathname);
+    if(result){
+        result.func(result.args);
+    }
+}
+
+function bindRoute(){
+    "use strict";
+    window.addEventListener("popstate", handleRoute);
+}
+
+function unbindRoute(){
+    "use strict";
+    window.removeEventListener("popstate", handleRoute);
+}
+
+
+function navigateRoute(url, options){
+    "use strict";
+    options = options || {};
+    var history = window.history, func = options && options.replace ? history.replaceState : history.pushState;
+    func(null, options && options.title, url);
+}
+
 
 
 function Route(args){
@@ -12,7 +44,7 @@ function Route(args){
         name = callback;
         callback = null;
     }
-    this.parser = pattern.parser(str, typeof callback === 'function');
+    this.parser = pattern.parse(str, typeof callback === 'function');
     this.name = name;
     this.fullName = name;
     this.segments = [this.parser];
@@ -25,9 +57,6 @@ function Route(args){
             children.push(child);
         }
     }else{
-        if(callback instanceof Route){
-            throw new Error("Router cannot be used as a callback");
-        }
         this.func = callback;
     }
 }
@@ -44,13 +73,13 @@ Route.prototype.match = function(path, offset, depth){
     for(i=0; i<l; i++){
         segment = segments[i];
         if((result = segment(path))){
-            path = path.substr(result.lastIndex);
+            path = path.substr(result.$lastIndex);
             utils.assign(outcome, result);
         }else{
             return false;
         }
     }
-    delete outcome.lastIndex;
+    delete outcome.$lastIndex;
     return outcome;
 };
 
@@ -91,12 +120,6 @@ Route.prototype.initialize = function(fullNames, segments){
 };
 
 
-function navigate(url, options){
-    "use strict";
-
-}
-
-
 function mount(router){
     "use strict";
     var stack = [{route: router, fullNames:[], segments: []}], item, i, l, children, child, route, name;
@@ -117,6 +140,10 @@ function mount(router){
         }
     }
     roots.push(router);
+    if(roots.length && !monitorRoutes){
+        bindRoute();
+        monitorRoutes = true;
+    }
 }
 
 
@@ -133,6 +160,10 @@ function unmount(router){
         }
     }
     utils.remove(roots, router);
+    if(!roots.length && monitorRoutes){
+        unbindRoute();
+        monitorRoutes = false;
+    }
 }
 
 
@@ -150,8 +181,11 @@ function resolve(name){
     var route = routeMap[name];
     if(route){
         return route.func;
+    }else{
+        return match(name).func;
     }
 }
+
 
 function match(path){
     "use strict";
@@ -170,19 +204,29 @@ function match(path){
     return false;
 }
 
-
-function routes(path, name, definitions){
+function Router(path, name, definitions){
     "use strict";
-    return new Route([path, name, definitions]);
+    this.routes = new Route([path, name, definitions]);
+}
+
+Router.prototype.start = function startRouter(){
+    "use strict";
+    mount(this.routes);
+}
+
+Router.prototype.stop = function stopRouter(){
+    "use strict";
+    unmount(this.routes);
 }
 
 
 module.exports = {
-    match: match,
-    mount: mount,
-    unmount: unmount,
     resolve: resolve,
     reverse: reverse,
-    routes: routes
+    router: function(path, name, arg){
+        "use strict";
+        return new Router(path, name, arg);
+    },
+    navigate: navigateRoute,
 };
 

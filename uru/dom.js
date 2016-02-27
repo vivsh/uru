@@ -155,13 +155,36 @@ function adopt(parent, el, before, replace){
     }
 }
 
- var addEventListener = (window && window.addEventListener) || function (eventName, listener) { //jshint ignore: line
-         return attachEvent('on' + eventName, listener); //jshint ignore: line
- };
+function ieAddEventListener(eventName, listener){
+    "use strict";
+    return attachEvent('on' + eventName, listener); //jshint ignore: line
+}
 
-var removeEventListener = (window && window.removeEventListener) || function (eventName, listener) {  //jshint ignore: line
+function ieRemoveEventListener(eventName, listener) {  //jshint ignore: line
     return detachEvent('on' + eventName, listener);  //jshint ignore: line
-};
+}
+
+
+function addEventListener(eventName, listener){
+    "use strict";
+    var callback = (window && window.addEventListener) || ieAddEventListener;
+
+    var func = function(event){
+        event = normalizeEvent(event);
+        listener.call(event.target, event);
+    };
+
+    func.__func__ = listener;
+
+    callback(eventName, func);
+}
+
+
+function removeEventListener(eventName, listener){
+    "use strict";
+    var callback = (window && window.removeEventListener) || ieRemoveEventListener;
+    callback(eventName, listener.__func__ || listener);
+}
 
 
 module.exports = {
@@ -176,7 +199,7 @@ module.exports = {
     getProperty: getProperty,
     getAttribute: getAttribute,
     adopt: adopt,
-    addListener: addEventListener,
-    removeListener: removeEventListener
+    addEventListener: addEventListener,
+    removeEventListener: removeEventListener
 };
 

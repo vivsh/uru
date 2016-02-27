@@ -122,7 +122,10 @@ function patchChildren(src, dst, stack){
         }
         for(i=children.length-1; i>=0; i-=1){
             if(!(i in used)){
-                deleteNode(children[i]);
+                stack.push({
+                    src: children[i],
+                    index:i,
+                });
             }
         }
 }
@@ -131,15 +134,17 @@ function patchComponent(component){
     "use strict";
     var tree = component.render(), parent=component.$el.parentNode,
         stack = [{src: component.$tree, dst: tree, parent: parent, owner: component.$tag}],
-        item, src, dst, change;
+        item, src, dst, change, hasChanged = false;
     while (stack.length){
         item = stack.pop();
         src = item.src;
         dst = item.dst;
         if(!src){
             createNode(item.parent, dst, item.before);
+            hasChanged = true;
         }else if(!dst){
             deleteNode(src);
+            hasChanged = true;
         }else if(src!==dst) {
             if (src.tag === dst.tag) {
                 if(src.content){
@@ -160,6 +165,7 @@ function patchComponent(component){
                     }else {
                         if (change) {
                             updateNode(src, dst, change);
+                            hasChanged = true;
                         } else {
                             dst.$el = src.$el;
                         }
@@ -168,11 +174,16 @@ function patchComponent(component){
                 }
             } else {
                 replaceNode(src, dst);
+                hasChanged = true;
             }
             reorderNode(dst,src);
+            hasChanged = true;
         }
     }
     component.$tree = tree;
+    if(hasChanged && typeof component.updated === 'function'){
+        component.updated(component.$el);
+    }
 }
 
 
@@ -197,7 +208,6 @@ function deleteComponent(component, nodelete){
     removeChild(component);
     while (stack.length) {
         comp = stack.pop();
-        //comp.beforeUnmount(comp.$el);
         entities.push(comp);
         children = comp.$children;
         stack.push.apply(stack, children);
@@ -206,13 +216,14 @@ function deleteComponent(component, nodelete){
     }
     for (i = entities.length - 1; i >= 0; i--) {
         comp = entities[i];
-        comp.unmount(comp.$el);
-        //dom.removeNode(comp.$el);
+        comp.unmounted(comp.$el);
         delete comp.$el;
     }
     delete component.$tag;
-    delete tag.$instance;
-    component.destroy();
+    if(component.persist){
+        delete tag.$instance;
+        component.destroyed();
+    }
     if(!nodelete){
         dom.removeNode(rootEl);
     }
@@ -306,7 +317,7 @@ function createNode(parent, tag, before) {
 
     for(i=mounts.length-1; i>=0; i--){
         child = mounts[i];
-        child.mount(child.$el);
+        child.mounted(child.$el);
     }
 }
 
@@ -342,12 +353,10 @@ function update(){
     var node, stack = [].concat($root.$children);
     while(stack.length){
         node = stack.pop();
-        if(node.$el && node.shouldUpdate()){
+        if(node.$el && node.hasChanged()){
             patchComponent(node);
         }
-        if(node.shouldChildrenUpdate()){
-            stack.push.apply(stack, node.$children);
-        }
+        stack.push.apply(stack, node.$children);
     }
 }
 

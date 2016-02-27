@@ -1,10 +1,13 @@
 
 
-var utils = require("./utils"), Component = require("./component"), draw = require("./draw");
+var utils = require("./utils"),
+    Component = require("./component"),
+    draw = require("./draw"),
+    routes = require("./routes");
 
 var components = {};
 
-var directives = {}, oid=0;
+var oid=0;
 
 function uru(tagName, attrs, children){
     "use strict";
@@ -48,11 +51,6 @@ function uru(tagName, attrs, children){
             delete attrs.key;
         }
 
-        for(key in attrs){
-            if(attrs.hasOwnProperty(key) && key in directives){
-                result = directives[key](result);
-            }
-        }
     }
 
     name = result.tag;
@@ -83,16 +81,6 @@ uru.component = function registerComponent(name, constructor){
 };
 
 
-uru.directive = function registerDirective(name, constructor){
-    "use strict";
-    if(constructor === undefined){
-        return directives[name];
-    }
-    directives[name] = constructor;
-    return constructor;
-};
-
-
 uru.Component = Component;
 
 
@@ -106,5 +94,13 @@ uru.mount = function(root, tagName, attrs){
 };
 
 uru.redraw = draw.redraw;
+
+uru.router = routes.router;
+
+uru.navigate = routes.navigate;
+
+uru.resolve = routes.resolve;
+
+uru.reverse = routes.reverse;
 
 module.exports = uru;

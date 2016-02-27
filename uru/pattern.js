@@ -41,11 +41,21 @@ var types = {
     any: {
         match: function(value){
             "use strict";
-            return value === '*';
+            return value === 'any';
         },
         pattern: function(value){
             "use strict";
             return '[^/]*';
+        }
+    },
+    greedyAny: {
+        match: function(value){
+            "use strict";
+            return value === '*';
+        },
+        pattern: function(value){
+            "use strict";
+            return '.*';
         }
     },
     choice: {
@@ -114,7 +124,7 @@ function regex(value, terminate, names, converters, segments){
         match = RX_SEGMENT.exec(p);
         if(match){
             name = match[1];
-            optional = !!match[2];
+            optional = !!match[2] || match[3] === '*';
             obj = select(match[3]);
             pattern = obj.pattern;
             high = parseInt(match[4]);
@@ -167,7 +177,7 @@ function parse(rx, args, converters, template){
                 result[i] = value;
             }
         }
-        result.lastIndex = match[0].length;
+        result.$lastIndex = match[0].length;
         return result;
     }
     return false;
@@ -227,6 +237,6 @@ function parser(value, terminate){
 
 
 module.exports = {
-    parser: parser,
+    parse: parser,
     register: register
 };

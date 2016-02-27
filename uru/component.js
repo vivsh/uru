@@ -56,34 +56,34 @@ Component.prototype.adopt = function(children){
 };
 
 
-Component.prototype.shouldUpdate = function(){
+Component.prototype.hasChanged = function(){
     "use strict";
     return this.$dirty;
 };
 
 
-Component.prototype.shouldChildrenUpdate = function(){
-    "use strict";
-    return true;
-};
-
-
-Component.prototype.mount = function(element){
+Component.prototype.mounted = function(element){
     "use strict";
 
 };
 
 
-Component.prototype.unmount = function(element){
+Component.prototype.unmounted = function(element){
     "use strict";
 
 };
 
 
-Component.prototype.destroy = function(element){
+Component.prototype.destroyed = function(element){
     "use strict";
 
 };
+
+
+Component.prototype.updated = function(element){
+    "use strict";
+
+}
 
 
 Component.extend = utils.extend;
