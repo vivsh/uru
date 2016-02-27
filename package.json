@@ -4,7 +4,10 @@
   "description": "virtual-dom library",
   "main": "uru/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build-lib": "webpack --output-library uru --output-library-target umd uru/index.js dist/uru.js",
+    "build-lib-min": "webpack --output-library --optimize-minimize uru --output-library-target umd uru/index.js dist/uru.min.js",
+    "build": "npm run build-lib && npm run build-lib-min"
   },
   "repository": {
     "type": "git",
@@ -23,6 +26,7 @@
   },
   "homepage": "https://github.com/vivsh/uru#readme",
   "devDependencies": {
+    "gulp": "^3.9.1",
     "lodash": "^4.5.1",
     "tape": "^4.4.0"
   }

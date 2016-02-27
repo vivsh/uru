@@ -1,0 +1,28 @@
+{
+  "name": "uru",
+  "description": "virtual-dom library",
+  "main": "uru/index.js",
+  "authors": [
+    "vivek"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "virtual-dom",
+    "uru",
+    "javascript",
+    "dom"
+  ],
+  "homepage": "https://github.com/vivsh/uru",
+  "moduleType": [
+    "amd",
+    "globals",
+    "node"
+  ],
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
