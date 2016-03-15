@@ -117,6 +117,6 @@ uru.utils = utils;
 
 uru.Component = Component;
 
-uru.dom.hook = nodes.hook;
+uru.hook = nodes.hook;
 
 module.exports = uru;

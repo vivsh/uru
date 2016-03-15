@@ -15,7 +15,7 @@ function applyHook(hook, event, el, callback){
         var handler = domHooks[hookName];
         if(handler[event]){
             try{
-                handler[event](hook, el);
+                handler[event](hook, el, callback);
             }catch(e){
                 callback();
             }
