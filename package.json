@@ -27,7 +27,10 @@
   "homepage": "https://github.com/vivsh/uru#readme",
   "devDependencies": {
     "gulp": "^3.9.1",
+    "jsdom": "8.0.4",
+    "jsdom-global": "1.6.2",
     "lodash": "^4.5.1",
+    "rewire": "^2.5.1",
     "tape": "^4.4.0"
   }
 }

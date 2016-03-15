@@ -2,14 +2,14 @@
 
 var pattern = require("./pattern"), utils = require("./utils");
 
-var roots = [], routeMap = {}, monitorRoutes = false;
+var roots = [], routeMap = {}, monitorRoutes = false, initialRoutePopped = false;
 
 
 function handleRoute(){
     "use strict";
     var pathname = window.location.pathname;
-    if(pathname.name.charAt(0) !== '/'){
-        pathname = "/" + pathname;
+    if(pathname.charAt(0) === '/'){
+        pathname = pathname.substr(1);
     }
     var result = match(pathname);
     if(result){
@@ -19,6 +19,30 @@ function handleRoute(){
 
 function bindRoute(){
     "use strict";
+    if(!initialRoutePopped) {
+        (function () {
+            // There's nothing to do for older browsers ;)
+            if (!window.addEventListener) {
+                return;
+            }
+            var blockPopstateEvent = document.readyState !== "complete";
+            window.addEventListener("load", function () {
+                // The timeout ensures that popstate-events will be unblocked right
+                // after the load event occured, but not in the same event-loop cycle.
+                setTimeout(function () {
+                    blockPopstateEvent = false;
+                }, 0);
+            }, false);
+            window.addEventListener("popstate", function (evt) {
+                if (blockPopstateEvent && document.readyState === "complete") {
+                    evt.preventDefault();
+                    evt.stopImmediatePropagation();
+                }
+            }, false);
+        })();
+        setTimeout(handleRoute);
+    }
+    initialRoutePopped = true;
     window.addEventListener("popstate", handleRoute);
 }
 
@@ -31,19 +55,19 @@ function unbindRoute(){
 function navigateRoute(url, options){
     "use strict";
     options = options || {};
-    var history = window.history, func = options && options.replace ? history.replaceState : history.pushState;
-    func(null, options && options.title, url);
+    var history = window.history, func = options && options.replace ? "replaceState" : "pushState";
+    history[func](null, options.title || "", url);
+    if(!options.silent){
+        handleRoute();
+    }
 }
-
 
 
 function Route(args){
     "use strict";
-    var str = args[0], name = args[1], callback = args[2];
-    if(args.length < 3){
-        name = callback;
-        callback = null;
-    }
+    var callback = args.pop(),
+        str = args.pop()||"",
+        name = args.pop() || "";
     this.parser = pattern.parse(str, typeof callback === 'function');
     this.name = name;
     this.fullName = name;
@@ -204,9 +228,9 @@ function match(path){
     return false;
 }
 
-function Router(path, name, definitions){
+function Router(args){
     "use strict";
-    this.routes = new Route([path, name, definitions]);
+    this.routes = new Route(args);
 }
 
 Router.prototype.start = function startRouter(){
@@ -225,7 +249,7 @@ module.exports = {
     reverse: reverse,
     router: function(path, name, arg){
         "use strict";
-        return new Router(path, name, arg);
+        return new Router(Array.prototype.slice.call(arguments));
     },
     navigate: navigateRoute,
 };

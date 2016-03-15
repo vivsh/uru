@@ -1,5 +1,3 @@
-
-
 function isString(obj) {
     "use strict";
     return Object.prototype.toString.call(obj) === '[object String]';
@@ -25,27 +23,12 @@ function isObject(obj) {
 }
 
 
-function getPrototype(value) {
-    "use strict";
-    if (Object.getPrototypeOf) {
-        return Object.getPrototypeOf(value);
-    }
-    var proto = "__proto__";
-    if (value[proto]) {
-        return value[proto];
-    }
-    if (value.constructor) {
-        return value.constructor.prototype;
-    }
-}
-
-
-var extend  = function ClassFactory(options){
+var extend = function ClassFactory(options) {
     "use strict";
     var owner = this, prototype = owner.prototype, key, value, proto;
-    var subclass = function subclass(){
+    var subclass = function subclass() {
         owner.apply(this, arguments);
-        if(this.initialize){
+        if (this.initialize) {
             this.initialize.apply(this, arguments);
         }
     };
@@ -53,8 +36,8 @@ var extend  = function ClassFactory(options){
     subclass.prototype.constructor = subclass;
     proto = subclass.prototype;
     proto.$super = prototype;
-    for(key in options){
-        if(options.hasOwnProperty(key)){
+    for (key in options) {
+        if (options.hasOwnProperty(key)) {
             proto[key] = options[key];
         }
     }
@@ -63,11 +46,11 @@ var extend  = function ClassFactory(options){
 };
 
 
-function remove(array, item){
+function remove(array, item) {
     "use strict";
     var i, l = array.length;
-    for(i=0; i<l; i++){
-        if(array[i] === item){
+    for (i = 0; i < l; i++) {
+        if (array[i] === item) {
             array.splice(i, 1);
             return i;
         }
@@ -75,83 +58,69 @@ function remove(array, item){
     return -1;
 }
 
-function diff(a, b){
-    "use strict";
-    var key, value, changes = {}, count = 0, target, gap, i, limit;
-    if(a===b){
-        return false;
-    }
-    if(isArray(a) && isArray(b)){
-        limit = Math.max(a.length, b.length);
-        changes = [];
-        for(i=0; i<limit; i++){
-            gap = diff(a[i], b[i]);
-            if(gap){
-                changes[i] = gap.delta;
-                count+=1;
-            }
-        }
-    }else if(isObject(a) && isObject(b)){
-        for(key in a){
-            if(a.hasOwnProperty(key)){
-                value = a[key];
-                target = b[key];
-                if(value!==target){
-                    gap = diff(value, target);
-                    if(gap){
-                        changes[key] = gap.delta;
-                        count+=1;
-                    }
-                }
-            }
-        }
-        for(key in b){
-            if(b.hasOwnProperty(key) && !(key in a)){
-                value = a[key];
-                target = b[key];
-                if(value!==target){
-                    gap = diff(value, target);
-                    if(gap){
-                        changes[key] = gap.delta;
-                        count+=1;
-                    }
-                }
-            }
-        }
-    }else{
-        return {delta: b, count: 1};
-    }
-    return count > 0 ? {delta: changes, count: count} : false;
-}
 
 function assign(target) {
-  'use strict';
-  if (target === undefined || target === null) {
-    throw new TypeError('Cannot convert undefined or null to object');
-  }
-
-  var output = Object(target);
-  for (var index = 1; index < arguments.length; index++) {
-    var source = arguments[index];
-    if (source !== undefined && source !== null) {
-      for (var nextKey in source) {
-        if (source.hasOwnProperty(nextKey)) {
-          output[nextKey] = source[nextKey];
-        }
-      }
+    'use strict';
+    if (target === undefined || target === null) {
+        throw new TypeError('Cannot convert undefined or null to object');
     }
-  }
-  return output;
+
+    var output = target;
+    for (var index = 1; index < arguments.length; index++) {
+        var source = arguments[index];
+        if (source !== undefined && source !== null) {
+            for (var nextKey in source) {
+                if (source.hasOwnProperty(nextKey)) {
+                    output[nextKey] = source[nextKey];
+                }
+            }
+        }
+    }
+    return output;
 }
+
+
+function diffAttr(src, dst) {
+    "use strict";
+    var item, changeKey, changes = {}, key, value, target,
+        stack = [{src: src, dst: dst, reverse: false}, {src: dst, dst: src}], total = 0;
+    while (stack.length) {
+        item = stack.pop();
+        if (item.src !== item.dst) {
+            if (typeof item.src === 'object' && typeof item.dst === 'object') {
+                for (key in item.src) {
+                    if (item.src.hasOwnProperty(key)) {
+                        changeKey = item.key || key;
+                        if (changeKey in changes) {
+                            continue;
+                        }
+                        value = item.src[key];
+                        target = item.dst[key];
+                        stack.push({key: changeKey, src: value, dst: target});
+                    }
+                }
+            } else if (!item.key || !(item.key in changes)) {
+                total += 1;
+                if (item.key) {
+                    changes[item.key] = dst[item.key];
+                } else {
+                    changes = dst;
+                    break;
+                }
+            }
+        }
+    }
+    return total ? {total: total, changes: changes} : false;
+}
+
 
 module.exports = {
     isArray: isArray,
     isString: isString,
     isFunction: isFunction,
     isObject: isObject,
-    getPrototypeOf: getPrototype,
-    diff: diff,
     extend: extend,
     remove: remove,
-    assign: assign
+    merge: assign,
+    diffAttr: diffAttr
 };

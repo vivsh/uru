@@ -7,13 +7,14 @@ function Component(attrs, inclusion){
     "use strict";
     this.state = {};
     this.inclusion = null;
-    this.$dirty = false;
+    this.$dirty = true;
     if(attrs){
         this.set(attrs);
     }
     if(inclusion){
         this.adopt(inclusion);
     }
+    this.$dirty = false;
 }
 
 
@@ -25,7 +26,7 @@ Component.prototype.render = function(){
 
 Component.prototype.set = function(values){
     "use strict";
-    var key, value, initial, state = this.state;
+    var key, value, initial, state = this.state, dirty = this.$dirty;
     if(values) {
         for (key in values) {
             if (values.hasOwnProperty(key)) {
@@ -38,7 +39,7 @@ Component.prototype.set = function(values){
             }
         }
     }
-    if(this.$dirty){
+    if(this.$dirty && !dirty){
         draw.redraw();
     }
 };
@@ -46,11 +47,12 @@ Component.prototype.set = function(values){
 
 Component.prototype.adopt = function(children){
     "use strict";
+    var dirty = this.$dirty;
     if(this.inclusion && utils.diff(this.inclusion, children)){
         this.inclusion = children;
         this.$dirty = true;
     }
-    if(this.$dirty){
+    if(this.$dirty && !dirty){
         draw.redraw();
     }
 };
@@ -61,29 +63,6 @@ Component.prototype.hasChanged = function(){
     return this.$dirty;
 };
 
-
-Component.prototype.mounted = function(element){
-    "use strict";
-
-};
-
-
-Component.prototype.unmounted = function(element){
-    "use strict";
-
-};
-
-
-Component.prototype.destroyed = function(element){
-    "use strict";
-
-};
-
-
-Component.prototype.updated = function(element){
-    "use strict";
-
-}
 
 
 Component.extend = utils.extend;

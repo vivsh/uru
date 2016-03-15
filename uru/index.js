@@ -2,12 +2,14 @@
 
 var utils = require("./utils"),
     Component = require("./component"),
+    nodes = require("./nodes"),
+    routes = require("./routes"),
     draw = require("./draw"),
-    routes = require("./routes");
+    dom = require("./dom");
+
 
 var components = {};
 
-var oid=0;
 
 function uru(tagName, attrs, children){
     "use strict";
@@ -23,45 +25,37 @@ function uru(tagName, attrs, children){
         children = Array.prototype.slice.call(arguments, position);
     }
 
-    result = {
-        tag: tagName,
-        attrs: attrs,
-        children: children || [],
-        $index: 0,
-        $oid: oid++
-    };
+
 
     if(children){
         limit = children.length;
         for(i=0; i<limit; i++){
             child = children[i];
             if(utils.isString(child)){
-                child = {"tag": "text", content: child, $index: i, $oid: ++oid};
+                child = new nodes.DomNode(nodes.TEXT_TYPE, null, child, i);
                 children[i] = child;
             }else{
-                child.$index = i;
+                child.index = i;
             }
         }
     }
 
+    name = tagName;
+
+    if(name in components){
+        tagName = components[name];
+    }
+
+    var factory = typeof tagName === 'function' ? nodes.ComponentNode : nodes.DomNode;
+    result = new factory(tagName, attrs, children || [], 0);
+
     if(attrs){
 
         if(attrs.hasOwnProperty("key")){
-            result.$key = attrs.key;
+            result.key = attrs.key;
             delete attrs.key;
         }
 
-    }
-
-    name = result.tag;
-
-    if(name in components){
-        comp = components[name];
-        if(comp.prototype instanceof Component){
-            result.tag = comp;
-        }else{
-            result = comp(result);
-        }
     }
 
     return result;
@@ -81,19 +75,33 @@ uru.component = function registerComponent(name, constructor){
 };
 
 
-uru.Component = Component;
-
-
-uru.mount = function(root, tagName, attrs){
+function mount(node, element, before){
     "use strict";
-    if(tagName.render){
-        draw.mount(root, tagName);
+    var frag = nodes.patch(node);
+    if(before === true){
+        element.parentNode.replaceChild(element, frag);
+    }else if(before){
+        element.insertBefore(frag, before);
     }else{
-        draw.mount(root, uru(tagName, attrs));
+        element.appendChild(frag);
     }
-};
+    return node;
+}
+
+
+function unmount(node){
+    "use strict";
+    nodes.patch(null, node);
+}
+
+
+uru.mount = mount;
+
+uru.unmount = unmount;
 
 uru.redraw = draw.redraw;
+
+uru.nextTick = draw.nextTick;
 
 uru.router = routes.router;
 
@@ -102,5 +110,13 @@ uru.navigate = routes.navigate;
 uru.resolve = routes.resolve;
 
 uru.reverse = routes.reverse;
+
+uru.dom = dom;
+
+uru.utils = utils;
+
+uru.Component = Component;
+
+uru.dom.hook = nodes.hook;
 
 module.exports = uru;
