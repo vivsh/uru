@@ -12,6 +12,7 @@ var Emitter = {
             callbacks[name] = [];
         }
         callbacks[name].push(callback);
+        return this;
     },
     off: function(name, callback){
         "use strict";
@@ -26,11 +27,13 @@ var Emitter = {
         }else{
             utils.remove(listeners[name], callback);
         }
+        return this;
     },
     once: function(name, callback){
         "use strict";
-        this.on(name, function wrapper(){
-            this.off(name, wrapper);
+        var self;
+        return this.on(name, function wrapper(){
+            self.off(name, wrapper);
             callback.apply(this, arguments);
         });
     },
@@ -43,7 +46,8 @@ var Emitter = {
                 listeners[name](data);
             }
         }
+        return this;
     }
-}
+};
 
 module.exports = Emitter;

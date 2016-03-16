@@ -80,7 +80,8 @@ function domAttributes(el, values) {
     "use strict";
     var key, value, type;
     var properties = {
-      "hook": 1
+        hook: 1,
+        className: 1
     };
     for (key in values) {
         if (values.hasOwnProperty(key)) {

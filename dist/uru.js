@@ -538,7 +538,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    "use strict";
 	    var key, value, type;
 	    var properties = {
-	      "hook": 1
+	        hook: 1,
+	        className: 1
 	    };
 	    for (key in values) {
 	        if (values.hasOwnProperty(key)) {
@@ -1025,20 +1026,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 
-
-
-	function getProperty(el, key){
-	    "use strict";
-	    return el[key];
-	}
-
-
-	function getAttribute(el, key){
-	    "use strict";
-	    return el.getAttribute(el);
-	}
-
-
 	function removeEventListeners(el) {
 	    "use strict";
 	    var attrs = el.attributes, i = 0, size, name;
@@ -1165,18 +1152,53 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
+	function classes(){
+	    "use strict";
+	    var stack = Array.prototype.slice.call(arguments), item, parts, result = [], history = {}, key, value;
+	    while(stack.length){
+	        item = stack.shift();
+	        if(utils.isArray(item)){
+	            stack.push.apply(stack, item);
+	        }else if (utils.isObject(item)){
+	            for(key in item){
+	                if(item.hasOwnProperty(key)){
+	                    value = item[key];
+	                    if(value && !(key in history)){
+	                        result.push(key);
+	                        history[key] = true;
+	                    }
+	                }
+	            }
+	        }else if(utils.isString(item)){
+	            parts = item.split(/\s+/);
+	            if(parts.length > 1){
+	                stack.push.apply(stack, parts);
+	            }else{
+	                item = parts[0];
+	                if(item && !(item in history)){
+	                    result.push(item);
+	                    history[item] = true;
+	                }
+	            }
+	        }else if(item){
+	            stack.push("" + item);
+	        }
+	    }
+	    return result.join(" ");
+	}
+
+
 	module.exports = {
 	    normalizeEvent: normalizeEvent,
 	    removeEventListeners: removeEventListeners,
 	    remove: removeNode,
 	    empty: removeChildren,
-	    getProperty: getProperty,
-	    getAttribute: getAttribute,
 	    addEventListener: addEventListener,
 	    removeEventListener: removeEventListener,
 	    addClass: addClass,
 	    removeClass: removeClass,
-	    toggleClass: toggleClass
+	    toggleClass: toggleClass,
+	    classes: classes
 	};
 
 
