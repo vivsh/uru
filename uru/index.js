@@ -3,7 +3,6 @@
 var utils = require("./utils"),
     Component = require("./component"),
     nodes = require("./nodes"),
-    routes = require("./routes"),
     draw = require("./draw"),
     dom = require("./dom");
 
@@ -101,15 +100,9 @@ uru.unmount = unmount;
 
 uru.redraw = draw.redraw;
 
+uru.queue = draw.Queue;
+
 uru.nextTick = draw.nextTick;
-
-uru.router = routes.router;
-
-uru.navigate = routes.navigate;
-
-uru.resolve = routes.resolve;
-
-uru.reverse = routes.reverse;
 
 uru.dom = dom;
 

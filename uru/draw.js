@@ -61,6 +61,7 @@ function redraw(){
 
 
 module.exports = {
+    Queue: Queue,
     redraw: redraw,
     nextTick: function nextFrame(func){
         "use strict";
