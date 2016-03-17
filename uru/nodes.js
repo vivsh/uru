@@ -1,5 +1,5 @@
 
-var utils = require("./utils");
+var utils = require("./utils"), dom = require("./dom");
 
 var TEXT_TYPE = -1;
 
@@ -7,11 +7,13 @@ var CLEAN = 1, DELETE = 2;
 
 var rootComponent, domHooks = {};
 
+var updateId = new Date().getTime();
+
 
 function applyHook(hook, event, el, callback){
     "use strict";
     var hookName;
-    if(hook && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
+    if(hook && el.nodeType === 1 && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
         var handler = domHooks[hookName];
         if(handler[event]){
             try{
@@ -86,7 +88,9 @@ function domAttributes(el, values) {
     for (key in values) {
         if (values.hasOwnProperty(key)) {
             value = values[key];
-            if(key === 'value' && el.tagName === 'TEXTAREA'){
+            if(key === 'classes'){
+                el.className = dom.classes(value);
+            }else if(key === 'value' && el.tagName === 'TEXTAREA'){
                 el.value = value;
             }else if(key === "show"){
                 domDisplay(el, value);
@@ -250,7 +254,6 @@ DomNode.prototype = {
         if(this.index !== src.index){
             this.reorder(src);
         }
-
         src.el = null;
         if(!isText){
             patchChildNodes(stack, this.el, src.owner, src.children, this.children);
@@ -319,13 +322,14 @@ ComponentNode.prototype = {
     create: function(stack, parent, owner){
         "use strict";
         var component = this.component = new this.type(this.attrs);
+
         component.$tag = this;
         this.render();
         this.owner = owner;
         this.el = parent;
 
         owner.$tag.own(component);
-
+        component.$lastUpdate = updateId;
         pushChildNodes(stack, parent, this.component, this.children, 'dst');
     },
     replace: function(stack, src, owner){
@@ -369,7 +373,7 @@ ComponentNode.prototype = {
         var stack = [this.component], content, component, tree, i, l;
         while(stack.length){
             component = stack.pop();
-            if(component.hasChanged && component.hasChanged()){
+            if(component.$lastUpdate !== updateId && component.hasChanged && component.hasChanged()){
                 tree = component.$tree;
                 content = component.$tag.render();
                 patch(content, tree);
@@ -498,11 +502,10 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
             parent: parentNode
         });
     }
-
     l = src.length;
     for(i=0; i<l; i++){
         srcChild = src[i];
-        if(i in used){
+        if(srcChild.index in used){
             continue;
         }
         entries.push({
@@ -512,7 +515,6 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
             parent: parentNode
         });
     }
-
     entries.reverse();
     stack.push.apply(stack, entries);
 }
@@ -524,6 +526,7 @@ rootComponent.component = {$tag: rootComponent};
 
 function update(){
     "use strict";
+    updateId += 1;
     rootComponent.update();
 }
 

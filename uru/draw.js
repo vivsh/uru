@@ -60,9 +60,19 @@ function redraw(){
 }
 
 
+function render(func){
+    "use strict";
+    var req = requestRunning;
+    requestRunning = true;
+    nextTick(func);
+    requestRunning = req;
+}
+
+
 module.exports = {
     Queue: Queue,
     redraw: redraw,
+    render: render,
     nextTick: function nextFrame(func){
         "use strict";
         nextTick(func);

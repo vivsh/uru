@@ -135,7 +135,7 @@ function classes(){
     while(stack.length){
         item = stack.shift();
         if(utils.isArray(item)){
-            stack.push.apply(stack, item);
+            stack.unshift.apply(stack, item);
         }else if (utils.isObject(item)){
             for(key in item){
                 if(item.hasOwnProperty(key)){
@@ -149,7 +149,7 @@ function classes(){
         }else if(utils.isString(item)){
             parts = item.split(/\s+/);
             if(parts.length > 1){
-                stack.push.apply(stack, parts);
+                stack.unshift.apply(stack, parts);
             }else{
                 item = parts[0];
                 if(item && !(item in history)){
@@ -158,7 +158,7 @@ function classes(){
                 }
             }
         }else if(item){
-            stack.push("" + item);
+            stack.unshift("" + item);
         }
     }
     return result.join(" ");

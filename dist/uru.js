@@ -65,52 +65,81 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var components = {};
 
-
-	function uru(tagName, attrs, children){
+	function parseTag(value, attrs){
 	    "use strict";
-	    var position = 2, result, key, name, tagset = [], i, limit, child, comp;
+	    var parts = value.split(/([\.#]?[^\s#.]+)/), tag = "div", history = {}, classes = [], item;
 
-	    if (!utils.isObject(attrs)) {
-	        children = attrs;
-	        attrs = null;
-	        position = 1;
-	    }
-
-	    if(utils.isString(children)){
-	        children = Array.prototype.slice.call(arguments, position);
-	    }
-
-
-
-	    if(children){
-	        limit = children.length;
-	        for(i=0; i<limit; i++){
-	            child = children[i];
-	            if(utils.isString(child)){
-	                child = new nodes.DomNode(nodes.TEXT_TYPE, null, child, i);
-	                children[i] = child;
+	    while(parts.length){
+	        item = parts.shift();
+	        if(item){
+	            if(item.charAt(0)==="."){
+	                item = item.substr(1);
+	                if(!(item in history)) {
+	                    classes.push(item);
+	                    history[item] = 1;
+	                }
+	            }else if(item.charAt(0)==="#"){
+	                item = item.substr(1);
+	                attrs.id = item;
 	            }else{
-	                child.index = i;
+	                tag = item;
 	            }
 	        }
 	    }
 
-	    name = tagName;
-
-	    if(name in components){
-	        tagName = components[name];
+	    if(classes.length){
+	        if("class" in attrs){
+	            attrs['class'] = dom.classes(attrs['class'], classes);
+	        }else{
+	            attrs['class'] = classes.join(" ");
+	        }
 	    }
 
-	    var factory = typeof tagName === 'function' ? nodes.ComponentNode : nodes.DomNode;
-	    result = new factory(tagName, attrs, children || [], 0);
+	    return tag;
+	}
+
+	function uru(tagName){
+	    "use strict";
+	    var result, key, name, i = 0, children = [], stack, item, attrs;
+
+	    stack = Array.prototype.slice.call(arguments, 1);
+
+	    attrs = utils.isPlainObject(stack[0]) ? stack.shift() : {};
+
+	    while(stack.length){
+	        item = stack.shift();
+	        if(utils.isArray(item)){
+	            stack.unshift.apply(stack, item);
+	        }else if(item){
+	            i += 1;
+	            if(utils.isString(item)){
+	                item = new nodes.DomNode(nodes.TEXT_TYPE, null, item, i);
+	            }
+	            children.push(item);
+	        }
+	    }
+
+	    if(tagName in components){
+	        tagName = components[tagName];
+	    }else{
+	        tagName = parseTag(tagName, attrs);
+	    }
+
+	    if(typeof tagName === 'function'){
+	        if(!(tagName.prototype instanceof Component)){
+	            result = tagName(attrs, children);
+	        }else{
+	            result = new nodes.ComponentNode(tagName, attrs, children);
+	        }
+	    }else{
+	        result = new nodes.DomNode(tagName, attrs, children);
+	    }
 
 	    if(attrs){
-
 	        if(attrs.hasOwnProperty("key")){
 	            result.key = attrs.key;
 	            delete attrs.key;
 	        }
-
 	    }
 
 	    return result;
@@ -150,9 +179,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	uru.mount = mount;
+	uru.mount = function(){
+	    "use strict";
+	    var args = arguments;
+	    draw.render(function(){
+	        mount.apply(null, args);
+	    });
+	}
 
-	uru.unmount = unmount;
+	uru.unmount = function(){
+	    "use strict";
+	    var args = arguments;
+	    draw.render(function(){
+	        unmount.apply(null, args);
+	    });
+	}
 
 	uru.redraw = draw.redraw;
 
@@ -168,7 +209,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	uru.hook = nodes.hook;
 
+	uru.classes = dom.classes;
+
 	module.exports = uru;
+
 
 /***/ },
 /* 1 */
@@ -198,6 +242,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return Object.prototype.toString.call(obj) === '[object Object]';
 	}
 
+
+	function isPlainObject(obj) {
+	    "use strict";
+	    if (typeof obj === 'object' && obj !== null) {
+	        if (typeof Object.getPrototypeOf === 'function') {
+	          var proto = Object.getPrototypeOf(obj);
+	          return proto === Object.prototype || proto === null;
+	        }
+	        return Object.prototype.toString.call(obj) === '[object Object]' && obj.constructor === Object;
+	    }
+	    return false;
+	}
 
 	var extend = function ClassFactory(options) {
 	    "use strict";
@@ -293,6 +349,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = {
 	    isArray: isArray,
 	    isString: isString,
+	    isPlainObject: isPlainObject,
 	    isFunction: isFunction,
 	    isObject: isObject,
 	    extend: extend,
@@ -443,9 +500,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
+	function render(func){
+	    "use strict";
+	    var req = requestRunning;
+	    requestRunning = true;
+	    nextTick(func);
+	    requestRunning = req;
+	}
+
+
 	module.exports = {
 	    Queue: Queue,
 	    redraw: redraw,
+	    render: render,
 	    nextTick: function nextFrame(func){
 	        "use strict";
 	        nextTick(func);
@@ -457,7 +524,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ function(module, exports, __webpack_require__) {
 
 	
-	var utils = __webpack_require__(1);
+	var utils = __webpack_require__(1), dom = __webpack_require__(5);
 
 	var TEXT_TYPE = -1;
 
@@ -465,11 +532,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var rootComponent, domHooks = {};
 
+	var updateId = new Date().getTime();
+
 
 	function applyHook(hook, event, el, callback){
 	    "use strict";
 	    var hookName;
-	    if(hook && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
+	    if(hook && el.nodeType === 1 && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
 	        var handler = domHooks[hookName];
 	        if(handler[event]){
 	            try{
@@ -544,7 +613,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    for (key in values) {
 	        if (values.hasOwnProperty(key)) {
 	            value = values[key];
-	            if(key === 'value' && el.tagName === 'TEXTAREA'){
+	            if(key === 'classes'){
+	                el.className = dom.classes(value);
+	            }else if(key === 'value' && el.tagName === 'TEXTAREA'){
 	                el.value = value;
 	            }else if(key === "show"){
 	                domDisplay(el, value);
@@ -708,7 +779,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(this.index !== src.index){
 	            this.reorder(src);
 	        }
-
 	        src.el = null;
 	        if(!isText){
 	            patchChildNodes(stack, this.el, src.owner, src.children, this.children);
@@ -777,13 +847,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    create: function(stack, parent, owner){
 	        "use strict";
 	        var component = this.component = new this.type(this.attrs);
+
 	        component.$tag = this;
 	        this.render();
 	        this.owner = owner;
 	        this.el = parent;
 
 	        owner.$tag.own(component);
-
+	        component.$lastUpdate = updateId;
 	        pushChildNodes(stack, parent, this.component, this.children, 'dst');
 	    },
 	    replace: function(stack, src, owner){
@@ -827,7 +898,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var stack = [this.component], content, component, tree, i, l;
 	        while(stack.length){
 	            component = stack.pop();
-	            if(component.hasChanged && component.hasChanged()){
+	            if(component.$lastUpdate !== updateId && component.hasChanged && component.hasChanged()){
 	                tree = component.$tree;
 	                content = component.$tag.render();
 	                patch(content, tree);
@@ -956,11 +1027,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	            parent: parentNode
 	        });
 	    }
-
 	    l = src.length;
 	    for(i=0; i<l; i++){
 	        srcChild = src[i];
-	        if(i in used){
+	        if(srcChild.index in used){
 	            continue;
 	        }
 	        entries.push({
@@ -970,7 +1040,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	            parent: parentNode
 	        });
 	    }
-
 	    entries.reverse();
 	    stack.push.apply(stack, entries);
 	}
@@ -982,6 +1051,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function update(){
 	    "use strict";
+	    updateId += 1;
 	    rootComponent.update();
 	}
 
@@ -1158,7 +1228,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    while(stack.length){
 	        item = stack.shift();
 	        if(utils.isArray(item)){
-	            stack.push.apply(stack, item);
+	            stack.unshift.apply(stack, item);
 	        }else if (utils.isObject(item)){
 	            for(key in item){
 	                if(item.hasOwnProperty(key)){
@@ -1172,7 +1242,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }else if(utils.isString(item)){
 	            parts = item.split(/\s+/);
 	            if(parts.length > 1){
-	                stack.push.apply(stack, parts);
+	                stack.unshift.apply(stack, parts);
 	            }else{
 	                item = parts[0];
 	                if(item && !(item in history)){
@@ -1181,7 +1251,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	            }
 	        }else if(item){
-	            stack.push("" + item);
+	            stack.unshift("" + item);
 	        }
 	    }
 	    return result.join(" ");

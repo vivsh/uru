@@ -9,52 +9,81 @@ var utils = require("./utils"),
 
 var components = {};
 
-
-function uru(tagName, attrs, children){
+function parseTag(value, attrs){
     "use strict";
-    var position = 2, result, key, name, tagset = [], i, limit, child, comp;
+    var parts = value.split(/([\.#]?[^\s#.]+)/), tag = "div", history = {}, classes = [], item;
 
-    if (!utils.isObject(attrs)) {
-        children = attrs;
-        attrs = null;
-        position = 1;
-    }
-
-    if(utils.isString(children)){
-        children = Array.prototype.slice.call(arguments, position);
-    }
-
-
-
-    if(children){
-        limit = children.length;
-        for(i=0; i<limit; i++){
-            child = children[i];
-            if(utils.isString(child)){
-                child = new nodes.DomNode(nodes.TEXT_TYPE, null, child, i);
-                children[i] = child;
+    while(parts.length){
+        item = parts.shift();
+        if(item){
+            if(item.charAt(0)==="."){
+                item = item.substr(1);
+                if(!(item in history)) {
+                    classes.push(item);
+                    history[item] = 1;
+                }
+            }else if(item.charAt(0)==="#"){
+                item = item.substr(1);
+                attrs.id = item;
             }else{
-                child.index = i;
+                tag = item;
             }
         }
     }
 
-    name = tagName;
-
-    if(name in components){
-        tagName = components[name];
+    if(classes.length){
+        if("class" in attrs){
+            attrs['class'] = dom.classes(attrs['class'], classes);
+        }else{
+            attrs['class'] = classes.join(" ");
+        }
     }
 
-    var factory = typeof tagName === 'function' ? nodes.ComponentNode : nodes.DomNode;
-    result = new factory(tagName, attrs, children || [], 0);
+    return tag;
+}
+
+function uru(tagName){
+    "use strict";
+    var result, key, name, i = 0, children = [], stack, item, attrs;
+
+    stack = Array.prototype.slice.call(arguments, 1);
+
+    attrs = utils.isPlainObject(stack[0]) ? stack.shift() : {};
+
+    while(stack.length){
+        item = stack.shift();
+        if(utils.isArray(item)){
+            stack.unshift.apply(stack, item);
+        }else if(item){
+            i += 1;
+            if(utils.isString(item)){
+                item = new nodes.DomNode(nodes.TEXT_TYPE, null, item, i);
+            }
+            children.push(item);
+        }
+    }
+
+    if(tagName in components){
+        tagName = components[tagName];
+    }else{
+        tagName = parseTag(tagName, attrs);
+    }
+
+    if(typeof tagName === 'function'){
+        if(!(tagName.prototype instanceof Component)){
+            result = tagName(attrs, children);
+        }else{
+            result = new nodes.ComponentNode(tagName, attrs, children);
+        }
+    }else{
+        result = new nodes.DomNode(tagName, attrs, children);
+    }
 
     if(attrs){
-
         if(attrs.hasOwnProperty("key")){
             result.key = attrs.key;
             delete attrs.key;
         }
-
     }
 
     return result;
@@ -94,9 +123,21 @@ function unmount(node){
 }
 
 
-uru.mount = mount;
+uru.mount = function(){
+    "use strict";
+    var args = arguments;
+    draw.render(function(){
+        mount.apply(null, args);
+    });
+}
 
-uru.unmount = unmount;
+uru.unmount = function(){
+    "use strict";
+    var args = arguments;
+    draw.render(function(){
+        unmount.apply(null, args);
+    });
+}
 
 uru.redraw = draw.redraw;
 
@@ -111,5 +152,7 @@ uru.utils = utils;
 uru.Component = Component;
 
 uru.hook = nodes.hook;
+
+uru.classes = dom.classes;
 
 module.exports = uru;

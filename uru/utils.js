@@ -23,6 +23,18 @@ function isObject(obj) {
 }
 
 
+function isPlainObject(obj) {
+    "use strict";
+    if (typeof obj === 'object' && obj !== null) {
+        if (typeof Object.getPrototypeOf === 'function') {
+          var proto = Object.getPrototypeOf(obj);
+          return proto === Object.prototype || proto === null;
+        }
+        return Object.prototype.toString.call(obj) === '[object Object]' && obj.constructor === Object;
+    }
+    return false;
+}
+
 var extend = function ClassFactory(options) {
     "use strict";
     var owner = this, prototype = owner.prototype, key, value, proto;
@@ -117,6 +129,7 @@ function diffAttr(src, dst) {
 module.exports = {
     isArray: isArray,
     isString: isString,
+    isPlainObject: isPlainObject,
     isFunction: isFunction,
     isObject: isObject,
     extend: extend,
