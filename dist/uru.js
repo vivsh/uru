@@ -195,6 +195,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	    });
 	}
 
+	uru.automount = function automount(){
+	    "use strict";
+	    draw.render(function(){
+	        dom.ready(function(){
+	           var matches = document.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
+	           for(i=0; i<matches.length; i++){
+	               el = matches[i];
+	               options = dom.data(el, "uru-option") || {};
+	               name = el.getAttribute("data-uru-component");
+	               mount(uru(name, options), el);
+	           }
+	        });
+	    });
+	}
+
 	uru.redraw = draw.redraw;
 
 	uru.queue = draw.Queue;
@@ -369,7 +384,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function Component(attrs, inclusion){
 	    "use strict";
-	    this.state = {};
+	    this.state = utils.merge({}, this.state);
 	    this.inclusion = null;
 	    this.$dirty = true;
 	    if(attrs){
@@ -1222,6 +1237,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
+
 	function classes(){
 	    "use strict";
 	    var stack = Array.prototype.slice.call(arguments), item, parts, result = [], history = {}, key, value;
@@ -1258,6 +1274,31 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
+	function ready(fn) {
+	    "use strict";
+	  if (document.readyState !== 'loading'){
+	    fn();
+	  } else {
+	    document.addEventListener('DOMContentLoaded', fn);
+	  }
+	}
+
+	function data(el, name){
+	    "use strict";
+	    var value = el.getAttribute("data-"+name);
+	    console.log(value, "data-"+name);
+	    if(value){
+	        try{
+	            return JSON.parse(value);
+	        }catch(e){
+	            return value;
+	        }
+	    }else{
+	        return null;
+	    }
+	}
+
+
 	module.exports = {
 	    normalizeEvent: normalizeEvent,
 	    removeEventListeners: removeEventListeners,
@@ -1268,7 +1309,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    addClass: addClass,
 	    removeClass: removeClass,
 	    toggleClass: toggleClass,
-	    classes: classes
+	    classes: classes,
+	    ready: ready,
+	    data: data
 	};
 
 

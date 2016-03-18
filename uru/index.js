@@ -139,6 +139,21 @@ uru.unmount = function(){
     });
 }
 
+uru.automount = function automount(){
+    "use strict";
+    draw.render(function(){
+        dom.ready(function(){
+           var matches = document.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
+           for(i=0; i<matches.length; i++){
+               el = matches[i];
+               options = dom.data(el, "uru-option") || {};
+               name = el.getAttribute("data-uru-component");
+               mount(uru(name, options), el);
+           }
+        });
+    });
+}
+
 uru.redraw = draw.redraw;
 
 uru.queue = draw.Queue;

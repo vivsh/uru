@@ -129,6 +129,7 @@ function toggleClass(el, className){
 }
 
 
+
 function classes(){
     "use strict";
     var stack = Array.prototype.slice.call(arguments), item, parts, result = [], history = {}, key, value;
@@ -165,6 +166,31 @@ function classes(){
 }
 
 
+function ready(fn) {
+    "use strict";
+  if (document.readyState !== 'loading'){
+    fn();
+  } else {
+    document.addEventListener('DOMContentLoaded', fn);
+  }
+}
+
+function data(el, name){
+    "use strict";
+    var value = el.getAttribute("data-"+name);
+    console.log(value, "data-"+name);
+    if(value){
+        try{
+            return JSON.parse(value);
+        }catch(e){
+            return value;
+        }
+    }else{
+        return null;
+    }
+}
+
+
 module.exports = {
     normalizeEvent: normalizeEvent,
     removeEventListeners: removeEventListeners,
@@ -175,6 +201,8 @@ module.exports = {
     addClass: addClass,
     removeClass: removeClass,
     toggleClass: toggleClass,
-    classes: classes
+    classes: classes,
+    ready: ready,
+    data: data
 };
 

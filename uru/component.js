@@ -5,7 +5,7 @@ var utils = require("./utils"), draw = require("./draw");
 
 function Component(attrs, inclusion){
     "use strict";
-    this.state = {};
+    this.state = utils.merge({}, this.state);
     this.inclusion = null;
     this.$dirty = true;
     if(attrs){
