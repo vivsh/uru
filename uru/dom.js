@@ -59,20 +59,8 @@ function normalizeEvent(event) {
 }
 
 
-function ieAddEventListener(eventName, listener){
+function addEventListener(el, eventName, listener){
     "use strict";
-    return attachEvent('on' + eventName, listener); //jshint ignore: line
-}
-
-
-function ieRemoveEventListener(eventName, listener) {  //jshint ignore: line
-    return detachEvent('on' + eventName, listener);  //jshint ignore: line
-}
-
-
-function addEventListener(eventName, listener){
-    "use strict";
-    var callback = (window && window.addEventListener) || ieAddEventListener;
 
     var func = function(event){
         event = normalizeEvent(event);
@@ -81,14 +69,14 @@ function addEventListener(eventName, listener){
 
     func.__func__ = listener;
 
-    callback(eventName, func);
+    el.addEventListener(eventName, func);
+
 }
 
 
-function removeEventListener(eventName, listener){
+function removeEventListener(el, eventName, listener){
     "use strict";
-    var callback = (window && window.removeEventListener) || ieRemoveEventListener;
-    callback(eventName, listener.__func__ || listener);
+    el.removeEventListener(el, eventName, listener.__func__ || listener);
 }
 
 

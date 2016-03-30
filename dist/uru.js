@@ -146,14 +146,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	uru.component = function registerComponent(name, constructor){
+	uru.component = function registerComponent(name){
 	    "use strict";
-	    if(constructor === undefined){
+	    var args = Array.prototype.slice.call(arguments);
+
+	    if(args.length === 1){
 	        return components[name];
 	    }
+
+	    var constructor = args.pop(), parent = args.pop(), base = args.length ? components[parent] : Component;
+
 	    if(typeof constructor === 'object'){
-	        constructor = Component.extend(constructor);
+	        constructor = base.extend(constructor);
 	    }
+
 	    components[name] = constructor;
 	    return constructor;
 	};
@@ -202,8 +208,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	           var matches = document.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
 	           for(i=0; i<matches.length; i++){
 	               el = matches[i];
+	               if(el.__uruComponent){
+	                   continue;
+	               }
 	               options = dom.data(el, "uru-option") || {};
 	               name = el.getAttribute("data-uru-component");
+	               el.__uruComponent = true;
 	               mount(uru(name, options), el);
 	           }
 	        });
@@ -1167,20 +1177,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	function ieAddEventListener(eventName, listener){
+	function addEventListener(el, eventName, listener){
 	    "use strict";
-	    return attachEvent('on' + eventName, listener); //jshint ignore: line
-	}
-
-
-	function ieRemoveEventListener(eventName, listener) {  //jshint ignore: line
-	    return detachEvent('on' + eventName, listener);  //jshint ignore: line
-	}
-
-
-	function addEventListener(eventName, listener){
-	    "use strict";
-	    var callback = (window && window.addEventListener) || ieAddEventListener;
 
 	    var func = function(event){
 	        event = normalizeEvent(event);
@@ -1189,14 +1187,14 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    func.__func__ = listener;
 
-	    callback(eventName, func);
+	    el.addEventListener(eventName, func);
+
 	}
 
 
-	function removeEventListener(eventName, listener){
+	function removeEventListener(el, eventName, listener){
 	    "use strict";
-	    var callback = (window && window.removeEventListener) || ieRemoveEventListener;
-	    callback(eventName, listener.__func__ || listener);
+	    el.removeEventListener(el, eventName, listener.__func__ || listener);
 	}
 
 

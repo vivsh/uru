@@ -90,14 +90,20 @@ function uru(tagName){
 }
 
 
-uru.component = function registerComponent(name, constructor){
+uru.component = function registerComponent(name){
     "use strict";
-    if(constructor === undefined){
+    var args = Array.prototype.slice.call(arguments);
+
+    if(args.length === 1){
         return components[name];
     }
+
+    var constructor = args.pop(), parent = args.pop(), base = args.length ? components[parent] : Component;
+
     if(typeof constructor === 'object'){
-        constructor = Component.extend(constructor);
+        constructor = base.extend(constructor);
     }
+
     components[name] = constructor;
     return constructor;
 };
@@ -146,8 +152,12 @@ uru.automount = function automount(){
            var matches = document.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
            for(i=0; i<matches.length; i++){
                el = matches[i];
+               if(el.__uruComponent){
+                   continue;
+               }
                options = dom.data(el, "uru-option") || {};
                name = el.getAttribute("data-uru-component");
+               el.__uruComponent = true;
                mount(uru(name, options), el);
            }
         });
