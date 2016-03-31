@@ -57,17 +57,16 @@ function uru(tagName){
             stack.unshift.apply(stack, item);
         }else if(item){
             i += 1;
-            if(utils.isString(item)){
-                item = new nodes.DomNode(nodes.TEXT_TYPE, null, item, i);
+            if(!(item instanceof nodes.DomNode) && !(item instanceof nodes.ComponentNode)){
+                item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
             }
             children.push(item);
         }
     }
 
+    tagName = parseTag(tagName, attrs);
     if(tagName in components){
         tagName = components[tagName];
-    }else{
-        tagName = parseTag(tagName, attrs);
     }
 
     if(typeof tagName === 'function'){
