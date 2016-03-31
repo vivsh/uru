@@ -40,9 +40,6 @@ var extend = function ClassFactory(options) {
     var owner = this, prototype = owner.prototype, key, value, proto;
     var subclass = function subclass() {
         owner.apply(this, arguments);
-        if (this.initialize) {
-            this.initialize.apply(this, arguments);
-        }
     };
     subclass.prototype = Object.create(owner.prototype);
     subclass.prototype.constructor = subclass;

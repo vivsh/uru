@@ -14,6 +14,9 @@ function Component(attrs, inclusion){
     if(inclusion){
         this.adopt(inclusion);
     }
+    if (this.initialize) {
+        this.initialize.apply(this, arguments);
+    }
     this.$dirty = false;
 }
 
