@@ -92,13 +92,13 @@ function uru(tagName){
 
 uru.component = function registerComponent(name){
     "use strict";
-    var args = Array.prototype.slice.call(arguments);
+    var args = Array.prototype.slice.call(arguments, 1);
 
-    if(args.length === 1){
+    if(args.length === 0){
         return components[name];
     }
 
-    var constructor = args.pop(), parent = args.pop(), base = args.length ? components[parent] : Component;
+    var constructor = args.pop(), base = args.length ? components[args.pop()] : Component;
 
     if(typeof constructor === 'object'){
         constructor = base.extend(constructor);

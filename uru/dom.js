@@ -166,7 +166,6 @@ function ready(fn) {
 function data(el, name){
     "use strict";
     var value = el.getAttribute("data-"+name);
-    console.log(value, "data-"+name);
     if(value){
         try{
             return JSON.parse(value);
