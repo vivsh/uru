@@ -32,8 +32,9 @@ function parseTag(value, attrs){
     }
 
     if(classes.length){
+        console.log(classes);
         if(("class" in attrs) || ("classes" in attrs)){
-            attrs['class'] = dom.classes(attrs['class'], attrs["classes"], classes);
+            attrs['class'] = dom.classes(classes, attrs['class'], attrs["classes"]);
             delete attrs.classes;
         }else{
             attrs['class'] = classes.join(" ");
