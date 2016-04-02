@@ -88,8 +88,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    if(classes.length){
-	        if("class" in attrs){
-	            attrs['class'] = dom.classes(attrs['class'], classes);
+	        if(("class" in attrs) || ("classes" in attrs)){
+	            attrs['class'] = dom.classes(classes, attrs['class'], attrs["classes"]);
+	            delete attrs.classes;
 	        }else{
 	            attrs['class'] = classes.join(" ");
 	        }
@@ -112,17 +113,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	            stack.unshift.apply(stack, item);
 	        }else if(item){
 	            i += 1;
-	            if(utils.isString(item)){
-	                item = new nodes.DomNode(nodes.TEXT_TYPE, null, item, i);
+	            if(!(item instanceof nodes.DomNode) && !(item instanceof nodes.ComponentNode)){
+	                item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
 	            }
 	            children.push(item);
 	        }
 	    }
 
+	    tagName = parseTag(tagName, attrs);
 	    if(tagName in components){
 	        tagName = components[tagName];
-	    }else{
-	        tagName = parseTag(tagName, attrs);
 	    }
 
 	    if(typeof tagName === 'function'){
@@ -148,13 +148,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	uru.component = function registerComponent(name){
 	    "use strict";
-	    var args = Array.prototype.slice.call(arguments);
+	    var args = Array.prototype.slice.call(arguments, 1);
 
-	    if(args.length === 1){
+	    if(args.length === 0){
 	        return components[name];
 	    }
 
-	    var constructor = args.pop(), parent = args.pop(), base = args.length ? components[parent] : Component;
+	    var constructor = args.pop(), base = args.length ? components[args.pop()] : Component;
 
 	    if(typeof constructor === 'object'){
 	        constructor = base.extend(constructor);
@@ -285,9 +285,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var owner = this, prototype = owner.prototype, key, value, proto;
 	    var subclass = function subclass() {
 	        owner.apply(this, arguments);
-	        if (this.initialize) {
-	            this.initialize.apply(this, arguments);
-	        }
 	    };
 	    subclass.prototype = Object.create(owner.prototype);
 	    subclass.prototype.constructor = subclass;
@@ -402,6 +399,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    if(inclusion){
 	        this.adopt(inclusion);
+	    }
+	    if (this.initialize) {
+	        this.initialize.apply(this, arguments);
 	    }
 	    this.$dirty = false;
 	}
@@ -1284,7 +1284,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	function data(el, name){
 	    "use strict";
 	    var value = el.getAttribute("data-"+name);
-	    console.log(value, "data-"+name);
 	    if(value){
 	        try{
 	            return JSON.parse(value);

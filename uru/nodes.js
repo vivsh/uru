@@ -349,6 +349,9 @@ ComponentNode.prototype = {
     destroy: function (stack, nodelete) {
         "use strict";
         var action = nodelete ? CLEAN : null;
+        if(!this.owner.$tag){
+            return;
+        }
         pushChildNodes(stack, this.el, this.component, this.children, 'src', action);
         this.owner.$tag.disown(this.component);
         this.component.$tag = null;
