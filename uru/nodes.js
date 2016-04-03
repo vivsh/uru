@@ -200,8 +200,9 @@ DomNode.prototype = {
         }
 
         if(owner && owner.$tree === this){
-            owner.el = this.el;
-            owner.$tag.el = this.el;
+            owner.$tag.setEl(this);
+            //owner.el = this.el;
+            //owner.$tag.el = this.el;
         }
 
         owner.$updated = true;
@@ -223,7 +224,7 @@ DomNode.prototype = {
         if(!isText){
             pushChildNodes(stack, this.el, this.owner, this.children, 'src', CLEAN);
         }
-        if(!nodelete){
+        if(!nodelete && el.parentNode){
             domRemove(el);
         }
         this.owner.$updated = true;
@@ -326,7 +327,7 @@ ComponentNode.prototype = {
         component.$tag = this;
         this.render();
         this.owner = owner;
-        this.el = parent;
+        this.el = null;
 
         owner.$tag.own(component);
         component.$lastUpdate = updateId;
@@ -337,7 +338,7 @@ ComponentNode.prototype = {
 
         var  parent = src.el.parentNode, tree;
 
-        pushChildNodes(stack, parent, owner, [src], 'src', CLEAN);
+        pushChildNodes(stack, parent, owner, [src], 'src');
 
         this.create(stack, parent, owner);
 
@@ -350,6 +351,7 @@ ComponentNode.prototype = {
         "use strict";
         var action = nodelete ? CLEAN : null;
         if(!this.owner.$tag){
+            //throw new Error("**********");
             return;
         }
         pushChildNodes(stack, this.el, this.component, this.children, 'src', action);
@@ -388,6 +390,17 @@ ComponentNode.prototype = {
             component.$dirty = false;
             stack.push.apply(stack, component.$children);
         }
+    },
+    setEl: function(node){
+        "use strict";
+        var component = this.component;
+        while (component && component.$tree === node){
+                component.el = node.el;
+                component.$tag.el = node.el;
+                node = component.$tag;
+                component = component.$owner;
+        }
+        return this.component.el;
     }
 };
 
