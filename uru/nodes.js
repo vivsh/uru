@@ -280,6 +280,7 @@ function ComponentNode(type, attrs, children, index){
     this.children = [];
     this.owner = null;
     this.el = null;
+    this.inclusion = children;
     this.component = null;
     this.index = arguments.length < 4 ? -1 : index;
 }
@@ -322,7 +323,7 @@ ComponentNode.prototype = {
     },
     create: function(stack, parent, owner){
         "use strict";
-        var component = this.component = new this.type(this.attrs);
+        var component = this.component = new this.type(this.attrs, this.inclusion);
 
         component.$tag = this;
         this.render();

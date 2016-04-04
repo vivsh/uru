@@ -76,6 +76,9 @@ function uru(tagName){
             result = new nodes.ComponentNode(tagName, attrs, children);
         }
     }else{
+        if(tagName.charAt(0) === "-"){
+            tagName = tagName.substr(1);
+        }
         result = new nodes.DomNode(tagName, attrs, children);
     }
 

@@ -51,7 +51,7 @@ Component.prototype.set = function(values){
 Component.prototype.adopt = function(children){
     "use strict";
     var dirty = this.$dirty;
-    if(this.inclusion && utils.diff(this.inclusion, children)){
+    if(!this.inclusion || (this.inclusion !== children)){
         this.inclusion = children;
         this.$dirty = true;
     }
