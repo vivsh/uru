@@ -123,6 +123,17 @@ function diffAttr(src, dst) {
 }
 
 
+function take(object, key, defaultValue){
+    "use strict";
+    var value = defaultValue;
+    if(key in object){
+        value = object[key];
+        delete object[key];
+    }
+    return value;
+}
+
+
 module.exports = {
     isArray: isArray,
     isString: isString,
@@ -132,5 +143,6 @@ module.exports = {
     extend: extend,
     remove: remove,
     merge: assign,
-    diffAttr: diffAttr
+    diffAttr: diffAttr,
+    take: take
 };
