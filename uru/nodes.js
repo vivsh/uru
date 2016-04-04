@@ -324,13 +324,12 @@ ComponentNode.prototype = {
     create: function(stack, parent, owner){
         "use strict";
         var component = this.component = new this.type(this.attrs, this.inclusion);
-
+        owner.$tag.own(component); // this information can be used inside render .e.g field
         component.$tag = this;
         this.render();
         this.owner = owner;
         this.el = null;
 
-        owner.$tag.own(component);
         component.$lastUpdate = updateId;
         pushChildNodes(stack, parent, this.component, this.children, 'dst');
     },
