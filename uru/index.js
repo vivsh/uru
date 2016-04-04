@@ -108,6 +108,9 @@ uru.component = function registerComponent(name){
     }
 
     components[name] = constructor;
+
+    constructor.prototype.$name = name;
+
     return constructor;
 };
 
