@@ -271,6 +271,29 @@ DomNode.prototype = {
 };
 
 
+function ownComponent(owner, child){
+    "use strict";
+    var children = owner.$children || (owner.$children = []);
+    if(child.$owner){
+        disownComponent(child);
+    }
+    child.$owner = owner;
+    children.push(child);
+}
+
+function disownComponent(child){
+    "use strict";
+    var i, owner = child.$owner,
+        children = owner.$children,
+        l = children.length;
+    child.$owner = null;
+    for(i=0; i<l; i++){
+        if(children[i] === child){
+            children.splice(i,1);
+        }
+    }
+}
+
 
 function ComponentNode(type, attrs, children, index){
     "use strict";
@@ -288,30 +311,10 @@ function ComponentNode(type, attrs, children, index){
 
 ComponentNode.prototype = {
     constructor: ComponentNode,
-    own: function(child){
-        "use strict";
-        var comp = this.component, children = comp.$children = comp.$children || [];
-        if(child.$owner){
-            child.$owner.disown(child);
-        }
-        child.$owner = comp;
-        children.push(child);
-    },
-    disown: function(component){
-        "use strict";
-        var i,
-            children = this.component.$children,
-            l = children.length;
-        component.$owner = null;
-        for(i=0; i<l; i++){
-            if(children[i] === component){
-                children.splice(i,1);
-            }
-        }
-    },
     render: function(){
         "use strict";
-        var tree = this.component.render();
+        var tree = this.component.render(this.component.state, this.inclusion);
+        this.inclusion = null;
         if(tree){
             tree.index = this.index;
             this.children = [tree];
@@ -323,8 +326,8 @@ ComponentNode.prototype = {
     },
     create: function(stack, parent, owner){
         "use strict";
-        var component = this.component = new this.type(this.attrs, this.inclusion);
-        owner.$tag.own(component); // this information can be used inside render .e.g field
+        var component = this.component = new this.type(this.attrs);
+        ownComponent(owner, component);
         component.$tag = this;
         this.render();
         this.owner = owner;
@@ -350,21 +353,20 @@ ComponentNode.prototype = {
     destroy: function (stack, nodelete) {
         "use strict";
         var action = nodelete ? CLEAN : null;
-        if(!this.owner.$tag){
-            //throw new Error("**********");
-            return;
-        }
+
+        disownComponent(this.component);
+
         pushChildNodes(stack, this.el, this.component, this.children, 'src', action);
-        this.owner.$tag.disown(this.component);
+
         this.component.$tag = null;
         this.component = null;
         this.el = null;
-        this.children = [];
+        this.children = null;
         this.owner = null;
     },
     patch: function(stack, src){
         "use strict";
-        this.component = src.component;
+        var comp = this.component = src.component;
         this.component.$tag = this;
         this.el = src.el;
         this.children = src.children;
@@ -378,7 +380,7 @@ ComponentNode.prototype = {
         var stack = [this.component], content, component, tree, i, l;
         while(stack.length){
             component = stack.pop();
-            if(component.$lastUpdate !== updateId && component.hasChanged && component.hasChanged()){
+            if(component.$tag.inclusion || (component.$lastUpdate !== updateId && component.hasChanged && component.hasChanged())){
                 tree = component.$tree;
                 content = component.$tag.render();
                 patch(content, tree);

@@ -3,16 +3,13 @@
 var utils = require("./utils"), draw = require("./draw");
 
 
-function Component(attrs, inclusion){
+function Component(attrs){
     "use strict";
     this.state = utils.merge({}, this.state);
     this.inclusion = null;
     this.$dirty = true;
     if(attrs){
         this.set(attrs);
-    }
-    if(inclusion){
-        this.adopt(inclusion);
     }
     if (this.initialize) {
         this.initialize.apply(this, arguments);
@@ -21,7 +18,7 @@ function Component(attrs, inclusion){
 }
 
 
-Component.prototype.render = function(){
+Component.prototype.render = function(state, content){
     "use strict";
     throw new Error("Not implemented");
 };
@@ -41,19 +38,6 @@ Component.prototype.set = function(values){
                 }
             }
         }
-    }
-    if(this.$dirty && !dirty){
-        draw.redraw();
-    }
-};
-
-
-Component.prototype.adopt = function(children){
-    "use strict";
-    var dirty = this.$dirty;
-    if(!this.inclusion || (this.inclusion !== children)){
-        this.inclusion = children;
-        this.$dirty = true;
     }
     if(this.$dirty && !dirty){
         draw.redraw();
