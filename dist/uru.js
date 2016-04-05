@@ -132,6 +132,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            result = new nodes.ComponentNode(tagName, attrs, children);
 	        }
 	    }else{
+	        if(tagName.charAt(0) === "-"){
+	            tagName = tagName.substr(1);
+	        }
 	        result = new nodes.DomNode(tagName, attrs, children);
 	    }
 
@@ -161,6 +164,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    components[name] = constructor;
+
+	    constructor.prototype.$name = name;
+
 	    return constructor;
 	};
 
@@ -368,6 +374,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
+	function take(object, key, defaultValue){
+	    "use strict";
+	    var value = defaultValue;
+	    if(key in object){
+	        value = object[key];
+	        delete object[key];
+	    }
+	    return value;
+	}
+
+
 	module.exports = {
 	    isArray: isArray,
 	    isString: isString,
@@ -377,7 +394,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    extend: extend,
 	    remove: remove,
 	    merge: assign,
-	    diffAttr: diffAttr
+	    diffAttr: diffAttr,
+	    take: take
 	};
 
 /***/ },
@@ -389,16 +407,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	var utils = __webpack_require__(1), draw = __webpack_require__(3);
 
 
-	function Component(attrs, inclusion){
+	function Component(attrs){
 	    "use strict";
 	    this.state = utils.merge({}, this.state);
 	    this.inclusion = null;
 	    this.$dirty = true;
 	    if(attrs){
 	        this.set(attrs);
-	    }
-	    if(inclusion){
-	        this.adopt(inclusion);
 	    }
 	    if (this.initialize) {
 	        this.initialize.apply(this, arguments);
@@ -407,7 +422,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	Component.prototype.render = function(){
+	Component.prototype.render = function(state, content){
 	    "use strict";
 	    throw new Error("Not implemented");
 	};
@@ -427,19 +442,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	            }
 	        }
-	    }
-	    if(this.$dirty && !dirty){
-	        draw.redraw();
-	    }
-	};
-
-
-	Component.prototype.adopt = function(children){
-	    "use strict";
-	    var dirty = this.$dirty;
-	    if(this.inclusion && utils.diff(this.inclusion, children)){
-	        this.inclusion = children;
-	        this.$dirty = true;
 	    }
 	    if(this.$dirty && !dirty){
 	        draw.redraw();
@@ -750,8 +752,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 
 	        if(owner && owner.$tree === this){
-	            owner.el = this.el;
-	            owner.$tag.el = this.el;
+	            owner.$tag.setEl(this);
+	            //owner.el = this.el;
+	            //owner.$tag.el = this.el;
 	        }
 
 	        owner.$updated = true;
@@ -773,7 +776,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(!isText){
 	            pushChildNodes(stack, this.el, this.owner, this.children, 'src', CLEAN);
 	        }
-	        if(!nodelete){
+	        if(!nodelete && el.parentNode){
 	            domRemove(el);
 	        }
 	        this.owner.$updated = true;
@@ -820,6 +823,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 
+	function ownComponent(owner, child){
+	    "use strict";
+	    var children = owner.$children || (owner.$children = []);
+	    if(child.$owner){
+	        disownComponent(child);
+	    }
+	    child.$owner = owner;
+	    children.push(child);
+	}
+
+	function disownComponent(child){
+	    "use strict";
+	    var i, owner = child.$owner,
+	        children = owner.$children,
+	        l = children.length;
+	    child.$owner = null;
+	    for(i=0; i<l; i++){
+	        if(children[i] === child){
+	            children.splice(i,1);
+	        }
+	    }
+	}
+
 
 	function ComponentNode(type, attrs, children, index){
 	    "use strict";
@@ -829,6 +855,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.children = [];
 	    this.owner = null;
 	    this.el = null;
+	    this.inclusion = children;
 	    this.component = null;
 	    this.index = arguments.length < 4 ? -1 : index;
 	}
@@ -836,30 +863,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	ComponentNode.prototype = {
 	    constructor: ComponentNode,
-	    own: function(child){
-	        "use strict";
-	        var comp = this.component, children = comp.$children = comp.$children || [];
-	        if(child.$owner){
-	            child.$owner.disown(child);
-	        }
-	        child.$owner = comp;
-	        children.push(child);
-	    },
-	    disown: function(component){
-	        "use strict";
-	        var i,
-	            children = this.component.$children,
-	            l = children.length;
-	        component.$owner = null;
-	        for(i=0; i<l; i++){
-	            if(children[i] === component){
-	                children.splice(i,1);
-	            }
-	        }
-	    },
 	    render: function(){
 	        "use strict";
-	        var tree = this.component.render();
+	        var tree = this.component.render(this.component.state, this.inclusion);
+	        this.inclusion = null;
 	        if(tree){
 	            tree.index = this.index;
 	            this.children = [tree];
@@ -872,13 +879,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    create: function(stack, parent, owner){
 	        "use strict";
 	        var component = this.component = new this.type(this.attrs);
-
+	        ownComponent(owner, component);
 	        component.$tag = this;
 	        this.render();
 	        this.owner = owner;
-	        this.el = parent;
+	        this.el = null;
 
-	        owner.$tag.own(component);
 	        component.$lastUpdate = updateId;
 	        pushChildNodes(stack, parent, this.component, this.children, 'dst');
 	    },
@@ -887,7 +893,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        var  parent = src.el.parentNode, tree;
 
-	        pushChildNodes(stack, parent, owner, [src], 'src', CLEAN);
+	        pushChildNodes(stack, parent, owner, [src], 'src');
 
 	        this.create(stack, parent, owner);
 
@@ -899,20 +905,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	    destroy: function (stack, nodelete) {
 	        "use strict";
 	        var action = nodelete ? CLEAN : null;
-	        if(!this.owner.$tag){
-	            return;
-	        }
+
+	        disownComponent(this.component);
+
 	        pushChildNodes(stack, this.el, this.component, this.children, 'src', action);
-	        this.owner.$tag.disown(this.component);
+
 	        this.component.$tag = null;
 	        this.component = null;
 	        this.el = null;
-	        this.children = [];
+	        this.children = null;
 	        this.owner = null;
 	    },
 	    patch: function(stack, src){
 	        "use strict";
-	        this.component = src.component;
+	        var comp = this.component = src.component;
 	        this.component.$tag = this;
 	        this.el = src.el;
 	        this.children = src.children;
@@ -926,7 +932,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var stack = [this.component], content, component, tree, i, l;
 	        while(stack.length){
 	            component = stack.pop();
-	            if(component.$lastUpdate !== updateId && component.hasChanged && component.hasChanged()){
+	            if(component.$tag.inclusion || (component.$lastUpdate !== updateId && component.hasChanged && component.hasChanged())){
 	                tree = component.$tree;
 	                content = component.$tag.render();
 	                patch(content, tree);
@@ -938,6 +944,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	            component.$dirty = false;
 	            stack.push.apply(stack, component.$children);
 	        }
+	    },
+	    setEl: function(node){
+	        "use strict";
+	        var component = this.component;
+	        while (component && component.$tree === node){
+	                component.el = node.el;
+	                component.$tag.el = node.el;
+	                node = component.$tag;
+	                component = component.$owner;
+	        }
+	        return this.component.el;
 	    }
 	};
 
