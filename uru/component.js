@@ -5,12 +5,8 @@ var utils = require("./utils"), draw = require("./draw");
 
 function Component(attrs){
     "use strict";
-    this.state = utils.merge({}, this.state);
-    this.inclusion = null;
+    this.context = utils.merge({}, this.context, attrs);
     this.$dirty = true;
-    if(attrs){
-        this.set(attrs);
-    }
     if (this.initialize) {
         this.initialize.apply(this, arguments);
     }
@@ -26,7 +22,7 @@ Component.prototype.render = function(state, content){
 
 Component.prototype.set = function(values){
     "use strict";
-    var key, value, initial, state = this.state, dirty = this.$dirty;
+    var key, value, initial, state = this.context, dirty = this.$dirty;
     if(values) {
         for (key in values) {
             if (values.hasOwnProperty(key)) {
@@ -34,7 +30,7 @@ Component.prototype.set = function(values){
                 initial = state[key];
                 if (value !== initial) {
                     this.$dirty = true;
-                    this.state[key] = value;
+                    state[key] = value;
                 }
             }
         }
@@ -47,6 +43,12 @@ Component.prototype.set = function(values){
 
 Component.prototype.hasChanged = function(){
     "use strict";
+    if (this.getContext){
+        var changes = this.getContext(this.context);
+        if(changes){
+            this.set(changes);
+        }
+    }
     return this.$dirty;
 };
 

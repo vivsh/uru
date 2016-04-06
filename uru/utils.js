@@ -1,3 +1,6 @@
+
+function noop() {}
+
 function isString(obj) {
     "use strict";
     return Object.prototype.toString.call(obj) === '[object String]';
@@ -38,21 +41,28 @@ function isPlainObject(obj) {
 var extend = function ClassFactory(options) {
     "use strict";
     var owner = this, prototype = owner.prototype, key, value, proto;
-    var subclass = function subclass() {
+
+    var subclass = options.hasOwnProperty('constructor') ? options.constructor : (function subclass() {
         owner.apply(this, arguments);
-    };
+    });
     subclass.prototype = Object.create(owner.prototype);
     subclass.prototype.constructor = subclass;
     proto = subclass.prototype;
     proto.$super = prototype;
-    for (key in options) {
-        if (options.hasOwnProperty(key)) {
-            proto[key] = options[key];
-        }
-    }
+    var mixins = take(options, "mixins", []);
+    var statics = take(options, "statics");
+    mixins.push(options);
+    mixins.unshift(proto);
+    assign.apply(null, mixins);
+    assign(subclass, statics);
     subclass.extend = extend;
     return subclass;
 };
+
+function Class(options){
+    "use strict";
+    return extend.call(noop, options);
+}
 
 
 function remove(array, item) {
@@ -70,6 +80,9 @@ function remove(array, item) {
 
 function assign(target) {
     'use strict';
+    if(Object.assign){
+        return Object.assign.apply(this, arguments);
+    }
     if (target === undefined || target === null) {
         throw new TypeError('Cannot convert undefined or null to object');
     }
@@ -144,5 +157,6 @@ module.exports = {
     remove: remove,
     merge: assign,
     diffAttr: diffAttr,
-    take: take
+    take: take,
+    Class: Class
 };

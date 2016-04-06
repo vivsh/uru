@@ -7,7 +7,7 @@ var CLEAN = 1, DELETE = 2;
 
 var rootComponent, domHooks = {};
 
-var updateId = new Date().getTime();
+var updateId = new Date().getTime(), oid = 87;
 
 
 function applyHook(hook, event, el, callback){
@@ -295,6 +295,37 @@ function disownComponent(child){
 }
 
 
+function clone(node){
+    "use strict";
+    var root = [], stack = [{node: node, container: root}], attrs, item, child, obj, container, i, children;
+    while(stack.length){
+        obj = stack.pop();
+        item = obj.node;
+        if(utils.isArray(item)){
+            obj.container.push(container = []);
+            children = item;
+        }else{
+            if(item.type === TEXT_TYPE){
+                container = null;
+                child = new DomNode(TEXT_TYPE, null, item.children, item.index);
+            }else{
+                children = item.children;
+                attrs = utils.merge({}, item.attrs);
+                container = []
+                child = new item.constructor(item.type, attrs, container, item.index);
+            }
+            obj.container.unshift(child);
+        }
+        if(container){
+            for(i=0; i<children.length; i++){
+                stack.push({container: container, node: children[i]});
+            }
+        }
+    }
+    return root[0];
+}
+
+
 function ComponentNode(type, attrs, children, index){
     "use strict";
     //component shall have 4 attributes: owner, children, tree, el
@@ -306,6 +337,7 @@ function ComponentNode(type, attrs, children, index){
     this.inclusion = children;
     this.component = null;
     this.index = arguments.length < 4 ? -1 : index;
+    this.oid = ++oid;
 }
 
 
@@ -313,21 +345,27 @@ ComponentNode.prototype = {
     constructor: ComponentNode,
     render: function(){
         "use strict";
-        var tree = this.component.render(this.component.state, this.inclusion);
-        this.inclusion = null;
+        var content = this.inclusion ;//&& this.inclusion.length ? clone(this.inclusion) : undefined;
+        var tree = this.component.render(this.component.context, content);
+
         if(tree){
             tree.index = this.index;
             this.children = [tree];
         }else{
             this.children = [];
         }
+
         this.component.$tree = tree;
+
         return tree;
     },
     create: function(stack, parent, owner){
         "use strict";
         var component = this.component = new this.type(this.attrs);
         ownComponent(owner, component);
+        if(component.hasChanged){
+            component.hasChanged();
+        }
         component.$tag = this;
         this.render();
         this.owner = owner;
@@ -366,12 +404,15 @@ ComponentNode.prototype = {
     },
     patch: function(stack, src){
         "use strict";
+        if(this === src){
+            return;
+        }
         var comp = this.component = src.component;
-        this.component.$tag = this;
+        comp.$tag = this;
+        comp.set(this.attrs);
         this.el = src.el;
         this.children = src.children;
         this.owner = src.owner;
-        this.component.set(this.attrs);
         src.component = null;
         src.owner = null;
     },
@@ -380,7 +421,7 @@ ComponentNode.prototype = {
         var stack = [this.component], content, component, tree, i, l;
         while(stack.length){
             component = stack.pop();
-            if(component.$tag.inclusion || (component.$lastUpdate !== updateId && component.hasChanged && component.hasChanged())){
+            if(component.hasChanged && component.hasChanged()){
                 tree = component.$tree;
                 content = component.$tag.render();
                 patch(content, tree);

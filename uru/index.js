@@ -49,7 +49,7 @@ function uru(tagName){
 
     stack = Array.prototype.slice.call(arguments, 1);
 
-    attrs = utils.isPlainObject(stack[0]) ? stack.shift() : {};
+    attrs = utils.merge({}, utils.isPlainObject(stack[0]) ? stack.shift() : null);
 
     while(stack.length){
         item = stack.shift();
@@ -169,6 +169,7 @@ uru.automount = function automount(){
         });
     });
 }
+
 
 uru.redraw = draw.redraw;
 
