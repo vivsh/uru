@@ -20,7 +20,7 @@ Component.prototype.render = function(state, content){
 };
 
 
-Component.prototype.set = function(values){
+Component.prototype.set = function(values, silent){
     "use strict";
     var key, value, initial, state = this.context, dirty = this.$dirty;
     if(values) {
@@ -35,7 +35,7 @@ Component.prototype.set = function(values){
             }
         }
     }
-    if(this.$dirty && !dirty){
+    if(this.$dirty && !dirty && !silent){
         draw.redraw();
     }
 };
@@ -46,7 +46,7 @@ Component.prototype.hasChanged = function(){
     if (this.getContext){
         var changes = this.getContext(this.context);
         if(changes){
-            this.set(changes);
+            this.set(changes, true);
         }
     }
     return this.$dirty;

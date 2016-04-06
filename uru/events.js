@@ -2,6 +2,25 @@
 var utils = require("./utils");
 
 var Emitter = {
+    listenTo: function(obj, name, callback){
+        "use strict";
+        var listeners = this._listeners;
+        if(!listeners){
+            listeners = this._listeners = [];
+        }
+        obj.on(name, callback);
+        listeners.push([obj, name, callback]);
+        return this;
+    },
+    stopListening: function(){
+        "use strict";
+        var listeners = this._listeners, i = 0, item;
+        for(i=0; i< listeners.length; i++){
+            item = listeners[i];
+            item[0].off(item[1], item[2]);
+        }
+        this._listeners = [];
+    },
     on: function(name, callback){
         "use strict";
         var callbacks = this._eventListeners;
@@ -29,7 +48,7 @@ var Emitter = {
         }
         return this;
     },
-    once: function(name, callback){
+    one: function(name, callback){
         "use strict";
         var self;
         return this.on(name, function wrapper(){
