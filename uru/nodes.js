@@ -485,6 +485,9 @@ function patch(target, current){
             }
         }else if(src.type !== dst.type){
             dst.replace(stack, src, owner);
+            if(dst.component){
+                mounts.push(dst.component);
+            }
         }else{
             dst.patch(stack, src);
         }
