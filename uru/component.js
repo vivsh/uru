@@ -1,6 +1,6 @@
 
 
-var utils = require("./utils"), draw = require("./draw");
+var utils = require("./utils"), nodes = require("./nodes");
 
 
 function Component(attrs){
@@ -10,8 +10,15 @@ function Component(attrs){
     if (this.initialize) {
         this.initialize.apply(this, arguments);
     }
+    // this.$cleaners = [];
     this.$dirty = false;
 }
+
+
+// Component.prototype.cleanup = function(callback){
+//     "use strict";
+//     this.$cleaners.push(callback);
+// }
 
 
 Component.prototype.render = function(state, content){
@@ -36,7 +43,7 @@ Component.prototype.set = function(values, silent){
         }
     }
     if(this.$dirty && !dirty && !silent){
-        draw.redraw();
+        nodes.redraw();
     }
 };
 
@@ -48,8 +55,9 @@ Component.prototype.hasChanged = function(){
         if(changes){
             this.set(changes, true);
         }
+        return this.$dirty;
     }
-    return this.$dirty;
+    return true;
 };
 
 

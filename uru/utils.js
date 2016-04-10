@@ -158,5 +158,7 @@ module.exports = {
     merge: assign,
     diffAttr: diffAttr,
     take: take,
-    Class: Class
+    Class: Class,
+    assign: assign,
+    noop: noop
 };

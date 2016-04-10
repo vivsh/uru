@@ -1,6 +1,18 @@
 
 var utils = require("./utils"), dom = require("./dom");
 
+var nextTick;
+
+
+var requestRunning = false;
+
+if(typeof window === 'object'){
+    nextTick = window.requestAnimationFrame || window.setTimeout;
+}else{
+    nextTick = utils.noop;
+}
+
+
 var TEXT_TYPE = -1;
 
 var CLEAN = 1, DELETE = 2;
@@ -37,7 +49,7 @@ function domNamespace(tag, parent) {
 }
 
 
-function domCreate(tagName, attrs, parent) {
+function domCreate(node, tagName, attrs, parent) {
     "use strict";
     var ns = domNamespace(tagName, parent), element;
     if(ns){
@@ -46,7 +58,7 @@ function domCreate(tagName, attrs, parent) {
         element = document.createElement(tagName);
     }
     if(attrs){
-        domAttributes(element, attrs);
+        domAttributes(node, element, attrs);
     }
     return element;
 }
@@ -69,6 +81,65 @@ function domStyle(el, style) {
 }
 
 
+function domAddActionEventName(el){
+    "use strict";
+    var tag = el.tagName, name;
+    if(tag === 'BUTTON'){
+        name = "click";
+    }else if(tag === 'TEXTAREA' || (tag === 'INPUT' && el.type in {search:1, password:1, text:1})){
+        name = "input";
+    }else if(tag === 'SELECT'){
+        name = "change";
+    }else if(tag === 'INPUT'){
+        name = "change";
+    }else{
+        name = "click";
+    }
+    return name;
+}
+
+
+function domAddEvent(node, el, eventName, callback) {
+    "use strict";
+    var events = node.events, name = eventName;
+    if(name === 'action'){
+        name = domAddActionEventName(el);
+    }
+    if(name in events){
+        domRemoveEvent(el, name);
+    }
+    if(callback){
+        var func = function (event) {
+            event = dom.normalizeEvent(event);
+            callback.call(node.owner, event);
+            if(eventName === 'action'){
+                redraw();
+            }
+        };
+        events[eventName] = func;
+        el.addEventListener(name, func, false);
+    }
+}
+
+function domRemoveEvent(node, el, eventName) {
+    "use strict";
+    var events = node.events, func, name = eventName;
+    if(arguments.length < 3){
+        for(name in events){
+            if(events.hasOwnProperty(name)){
+                domRemoveEvent(node, el, name);
+            }
+        }
+    }else{
+        func = events[eventName];
+        if(name === 'action'){
+            name = domAddActionEventName(el);
+        }
+        el.removeEventListener(name, func);
+        delete events[eventName];
+    }
+}
+
 function domDisplay(el, value){
     "use strict";
     var eventName = value ? "show" : "hide";
@@ -78,17 +149,23 @@ function domDisplay(el, value){
 }
 
 
-function domAttributes(el, values) {
+function domAttributes(node, el, values) {
     "use strict";
     var key, value, type;
     var properties = {
         hook: 1,
-        className: 1
+        className: 1,
+        checked:1,
+        selected:1,
+        disabled:1,
+        readonly:1
     };
     for (key in values) {
         if (values.hasOwnProperty(key)) {
             value = values[key];
-            if(key === 'classes'){
+            if(key.substr(0, 2) === 'on'){
+                domAddEvent(node, el, key.substr(2), value);
+            }else if(key === 'classes' || key === 'class'){
                 el.className = dom.classes(value);
             }else if(key === 'value' && el.tagName === 'TEXTAREA'){
                 el.value = value;
@@ -166,11 +243,24 @@ function DomNode(type, attrs, children, index){
     this.el = null;
     this.index = arguments.length < 4 ? -1 : index;
     this.owner = null;
+    this.events = {};
 }
 
 
 DomNode.prototype = {
     constructor: DomNode,
+    addEventListener: function(name, callback){
+        "use strict";
+
+    },
+    removeEventListener: function(){
+        "use strict";
+
+    },
+    setAttributes: function(){
+        "use strict";
+
+    },
     create: function(stack, parent, owner){
         "use strict";
         var src = this.tenant, before, replace;
@@ -185,7 +275,7 @@ DomNode.prototype = {
         if(isText){
             el = document.createTextNode(this.children);
         }else{
-            el = domCreate(this.type, this.attrs, parent);
+            el = domCreate(this, this.type, this.attrs, parent);
 
         }
 
@@ -201,8 +291,6 @@ DomNode.prototype = {
 
         if(owner && owner.$tree === this){
             owner.$tag.setEl(this);
-            //owner.el = this.el;
-            //owner.$tag.el = this.el;
         }
 
         owner.$updated = true;
@@ -227,6 +315,7 @@ DomNode.prototype = {
         if(!nodelete && el.parentNode){
             domRemove(el);
         }
+        domRemoveEvent(this, el);
         this.owner.$updated = true;
         this.el = null;
         this.owner = null;
@@ -244,7 +333,7 @@ DomNode.prototype = {
             var diff = utils.diffAttr(src.attrs, this.attrs), changes, show;
             if(diff){
                 changes = diff.changes;
-                domAttributes(el, changes);
+                domAttributes(this, el, changes, owner);
                 owner.$updated = true;
             }
         }
@@ -290,6 +379,19 @@ function disownComponent(child){
     for(i=0; i<l; i++){
         if(children[i] === child){
             children.splice(i,1);
+        }
+    }
+}
+
+function destroyComponent(component){
+    "use strict";
+    var func;
+    while(component.$cleaners.length){
+        func = component.$cleaners.shift();
+        try {
+            func.call(component);
+        }catch(e){
+            console.log(e);
         }
     }
 }
@@ -450,7 +552,6 @@ ComponentNode.prototype = {
 
 function patch(target, current){
     "use strict";
-
     var origin = {
         src: current,
         dst: target,
@@ -473,6 +574,7 @@ function patch(target, current){
         if(!dst){
             if(src.component){
                 deletes.push(src.component);
+                // destroyComponent(src.component)
                 if(src.component.onUnmount){
                     src.component.onUnmount();
                 }
@@ -614,6 +716,30 @@ function hook(name, handler){
     }
 }
 
+function updateUI(){
+    "use strict";
+    update();
+    requestRunning = false;
+}
+
+
+function redraw(){
+    "use strict";
+    if(!requestRunning){
+        requestRunning = true;
+        nextTick(updateUI);
+    }
+}
+
+
+function render(func){
+    "use strict";
+    var req = requestRunning;
+    requestRunning = true;
+    nextTick(func);
+    requestRunning = req;
+}
+
 
 module.exports = {
     DomNode: DomNode,
@@ -621,5 +747,10 @@ module.exports = {
     TEXT_TYPE: TEXT_TYPE,
     patch: patch,
     update: update,
-    hook: hook,
+    render: render,
+    redraw: redraw,
+    nextTick: function nextFrame(func){
+        "use strict";
+        nextTick(func);
+    }
 }

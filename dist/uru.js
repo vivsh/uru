@@ -58,9 +58,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var utils = __webpack_require__(1),
 	    Component = __webpack_require__(2),
-	    nodes = __webpack_require__(4),
-	    draw = __webpack_require__(3),
-	    dom = __webpack_require__(5);
+	    nodes = __webpack_require__(3),
+	    dom = __webpack_require__(4),
+	    routes = __webpack_require__(5);
 
 
 	var components = {};
@@ -194,7 +194,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.mount = function(){
 	    "use strict";
 	    var args = arguments;
-	    draw.render(function(){
+	    nodes.render(function(){
 	        mount.apply(null, args);
 	    });
 	}
@@ -202,14 +202,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.unmount = function(){
 	    "use strict";
 	    var args = arguments;
-	    draw.render(function(){
+	    nodes.render(function(){
 	        unmount.apply(null, args);
 	    });
 	}
 
 	uru.automount = function automount(){
 	    "use strict";
-	    draw.render(function(){
+	    nodes.render(function(){
 	        dom.ready(function(){
 	           var matches = document.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
 	           for(i=0; i<matches.length; i++){
@@ -227,11 +227,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	uru.redraw = draw.redraw;
+	uru.withAttr = function(attr, callback){
+	    "use strict";
+	    return function (event) {
+	        var value = event.target.attr;
+	        if(utils.isString(callback)){
+	            this.set({callback: value});
+	        }else{
+	            callback.call(this, value);
+	        }
+	    };
+	}
 
-	uru.queue = draw.Queue;
+	uru.redraw = nodes.redraw;
 
-	uru.nextTick = draw.nextTick;
+	uru.queue = nodes.Queue;
+
+	uru.nextTick = nodes.nextTick;
 
 	uru.dom = dom;
 
@@ -242,6 +254,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.hook = nodes.hook;
 
 	uru.classes = dom.classes;
+
+	uru.routes = routes;
 
 	module.exports = uru;
 
@@ -410,7 +424,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    merge: assign,
 	    diffAttr: diffAttr,
 	    take: take,
-	    Class: Class
+	    Class: Class,
+	    assign: assign,
+	    noop: noop
 	};
 
 /***/ },
@@ -419,7 +435,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	
 
-	var utils = __webpack_require__(1), draw = __webpack_require__(3);
+	var utils = __webpack_require__(1), nodes = __webpack_require__(3);
 
 
 	function Component(attrs){
@@ -429,8 +445,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (this.initialize) {
 	        this.initialize.apply(this, arguments);
 	    }
+	    // this.$cleaners = [];
 	    this.$dirty = false;
 	}
+
+
+	// Component.prototype.cleanup = function(callback){
+	//     "use strict";
+	//     this.$cleaners.push(callback);
+	// }
 
 
 	Component.prototype.render = function(state, content){
@@ -455,7 +478,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	    }
 	    if(this.$dirty && !dirty && !silent){
-	        draw.redraw();
+	        nodes.redraw();
 	    }
 	};
 
@@ -467,8 +490,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(changes){
 	            this.set(changes, true);
 	        }
+	        return this.$dirty;
 	    }
-	    return this.$dirty;
+	    return true;
 	};
 
 
@@ -483,92 +507,19 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ function(module, exports, __webpack_require__) {
 
 	
-	var nodes = __webpack_require__(4);
+	var utils = __webpack_require__(1), dom = __webpack_require__(4);
+
+	var nextTick;
 
 
-	var requestRunning = false, nextTick = window.requestAnimationFrame || window.setTimeout;
+	var requestRunning = false;
 
-
-	function Queue(){
-	    "use strict";
-	    this.items = [];
-	    this.next = this.next.bind(this);
-	    this._running = false;
+	if(typeof window === 'object'){
+	    nextTick = window.requestAnimationFrame || window.setTimeout;
+	}else{
+	    nextTick = utils.noop;
 	}
 
-	Queue.prototype = {
-	    constructor:Queue,
-	    push: function(callback){
-	        "use strict";
-	         this.items.push(callback);
-	        if(!this._running){
-	            this._running = true;
-	            this.next();
-	        }
-	        return this;
-	    },
-	    next: function(){
-	        "use strict";
-	        var self = this;
-	        if(self.items.length){
-	            nextTick(function(){
-	                var item = self.items.shift();
-	                item(self.next);
-	            });
-	        }
-	    },
-	    delay: function(ms){
-	        "use strict";
-	        var self = this;
-	        return this.push(function(next){
-	            setTimeout(function(){
-	                next();
-	            }, ms);
-	        });
-	    }
-	};
-
-	function updateUI(){
-	    "use strict";
-	    nodes.update();
-	    requestRunning = false;
-	}
-
-
-	function redraw(){
-	    "use strict";
-	    if(!requestRunning){
-	        requestRunning = true;
-	        nextTick(updateUI);
-	    }
-	}
-
-
-	function render(func){
-	    "use strict";
-	    var req = requestRunning;
-	    requestRunning = true;
-	    nextTick(func);
-	    requestRunning = req;
-	}
-
-
-	module.exports = {
-	    Queue: Queue,
-	    redraw: redraw,
-	    render: render,
-	    nextTick: function nextFrame(func){
-	        "use strict";
-	        nextTick(func);
-	    }
-	}
-
-/***/ },
-/* 4 */
-/***/ function(module, exports, __webpack_require__) {
-
-	
-	var utils = __webpack_require__(1), dom = __webpack_require__(5);
 
 	var TEXT_TYPE = -1;
 
@@ -606,7 +557,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	function domCreate(tagName, attrs, parent) {
+	function domCreate(node, tagName, attrs, parent) {
 	    "use strict";
 	    var ns = domNamespace(tagName, parent), element;
 	    if(ns){
@@ -615,7 +566,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        element = document.createElement(tagName);
 	    }
 	    if(attrs){
-	        domAttributes(element, attrs);
+	        domAttributes(node, element, attrs);
 	    }
 	    return element;
 	}
@@ -638,6 +589,60 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
+	function domAddActionEventName(el){
+	    "use strict";
+	    var tag = el.tagName, name;
+	    if(tag === 'BUTTON'){
+	        name = "click";
+	    }else if(tag === 'TEXTAREA' || (tag === 'INPUT' && el.type in {search:1, password:1, text:1})){
+	        name = "input";
+	    }else if(tag === 'SELECT'){
+	        name = "change";
+	    }else if(tag === 'INPUT'){
+	        name = "change";
+	    }else{
+	        name = "click";
+	    }
+	    return name;
+	}
+
+
+	function domAddEvent(node, el, name, callback) {
+	    "use strict";
+	    var events = node.events;
+	    if(name in events){
+	        domRemoveEvent(el, name);
+	    }
+	    if(callback){
+	        var func = function (event) {
+	            event = dom.normalizeEvent(event);
+	            callback.call(node.owner, event);
+	            redraw();
+	        };
+	        events[name] = func;
+	        if(name === 'action'){
+	            name = domAddActionEventName(el);
+	        }
+	        el.addEventListener(name, func, false);
+	    }
+	}
+
+	function domRemoveEvent(node, el, name) {
+	    "use strict";
+	    var events = node.events, func;
+	    if(arguments.length < 3){
+	        for(name in events){
+	            if(events.hasOwnProperty(name)){
+	                el.removeEventListener(name, events[name]);
+	            }
+	        }
+	    }else{
+	        func = events[name];
+	        el.removeEventListener(name, func);
+	        delete events[name];
+	    }
+	}
+
 	function domDisplay(el, value){
 	    "use strict";
 	    var eventName = value ? "show" : "hide";
@@ -647,17 +652,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	function domAttributes(el, values) {
+	function domAttributes(node, el, values) {
 	    "use strict";
 	    var key, value, type;
 	    var properties = {
 	        hook: 1,
-	        className: 1
+	        className: 1,
+	        checked:1,
+	        selected:1,
+	        disabled:1,
+	        readonly:1
 	    };
 	    for (key in values) {
 	        if (values.hasOwnProperty(key)) {
 	            value = values[key];
-	            if(key === 'classes'){
+	            if(key.substr(0, 2) === 'on'){
+	                domAddEvent(node, el, key.substr(2), value);
+	            }else if(key === 'classes' || key === 'class'){
 	                el.className = dom.classes(value);
 	            }else if(key === 'value' && el.tagName === 'TEXTAREA'){
 	                el.value = value;
@@ -735,11 +746,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.el = null;
 	    this.index = arguments.length < 4 ? -1 : index;
 	    this.owner = null;
+	    this.events = {};
 	}
 
 
 	DomNode.prototype = {
 	    constructor: DomNode,
+	    addEventListener: function(name, callback){
+	        "use strict";
+
+	    },
+	    removeEventListener: function(){
+	        "use strict";
+
+	    },
+	    setAttributes: function(){
+	        "use strict";
+
+	    },
 	    create: function(stack, parent, owner){
 	        "use strict";
 	        var src = this.tenant, before, replace;
@@ -754,7 +778,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(isText){
 	            el = document.createTextNode(this.children);
 	        }else{
-	            el = domCreate(this.type, this.attrs, parent);
+	            el = domCreate(this, this.type, this.attrs, parent);
 
 	        }
 
@@ -770,8 +794,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        if(owner && owner.$tree === this){
 	            owner.$tag.setEl(this);
-	            //owner.el = this.el;
-	            //owner.$tag.el = this.el;
 	        }
 
 	        owner.$updated = true;
@@ -796,6 +818,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(!nodelete && el.parentNode){
 	            domRemove(el);
 	        }
+	        domRemoveEvent(this, el);
 	        this.owner.$updated = true;
 	        this.el = null;
 	        this.owner = null;
@@ -813,7 +836,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            var diff = utils.diffAttr(src.attrs, this.attrs), changes, show;
 	            if(diff){
 	                changes = diff.changes;
-	                domAttributes(el, changes);
+	                domAttributes(this, el, changes, owner);
 	                owner.$updated = true;
 	            }
 	        }
@@ -859,6 +882,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	    for(i=0; i<l; i++){
 	        if(children[i] === child){
 	            children.splice(i,1);
+	        }
+	    }
+	}
+
+	function destroyComponent(component){
+	    "use strict";
+	    var func;
+	    while(component.$cleaners.length){
+	        func = component.$cleaners.shift();
+	        try {
+	            func.call(component);
+	        }catch(e){
+	            console.log(e);
 	        }
 	    }
 	}
@@ -1019,7 +1055,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function patch(target, current){
 	    "use strict";
-
 	    var origin = {
 	        src: current,
 	        dst: target,
@@ -1042,6 +1077,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(!dst){
 	            if(src.component){
 	                deletes.push(src.component);
+	                // destroyComponent(src.component)
 	                if(src.component.onUnmount){
 	                    src.component.onUnmount();
 	                }
@@ -1054,6 +1090,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	        }else if(src.type !== dst.type){
 	            dst.replace(stack, src, owner);
+	            if(dst.component){
+	                mounts.push(dst.component);
+	            }
 	        }else{
 	            dst.patch(stack, src);
 	        }
@@ -1180,6 +1219,30 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	}
 
+	function updateUI(){
+	    "use strict";
+	    update();
+	    requestRunning = false;
+	}
+
+
+	function redraw(){
+	    "use strict";
+	    if(!requestRunning){
+	        requestRunning = true;
+	        nextTick(updateUI);
+	    }
+	}
+
+
+	function render(func){
+	    "use strict";
+	    var req = requestRunning;
+	    requestRunning = true;
+	    nextTick(func);
+	    requestRunning = req;
+	}
+
 
 	module.exports = {
 	    DomNode: DomNode,
@@ -1187,11 +1250,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	    TEXT_TYPE: TEXT_TYPE,
 	    patch: patch,
 	    update: update,
-	    hook: hook,
+	    render: render,
+	    redraw: redraw,
+	    nextTick: function nextFrame(func){
+	        "use strict";
+	        nextTick(func);
+	    }
 	}
 
 /***/ },
-/* 5 */
+/* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
@@ -1247,10 +1315,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	            this.returnValue = false;
 	        };
 	    }
-	    event.target = event.target || event.srcElement;
-	    event.relatedTarget = event.relatedTarget || event.toElement || event.fromElement;
-	    event.charCode = event.charCode || event.keyCode;
-	    event.character = String.fromCharCode(event.charCode);
+	    if(!('target' in event)){
+	        event.target = event.srcElement;
+	    }
+	    if(!('relatedTarget' in event)){
+	        event.relatedTarget = event.toElement || event.fromElement;
+	    }
+	    if(!('charCode' in event)){
+	        event.charCode = event.keyCode;
+	    }
 	    return event;
 	}
 
@@ -1374,6 +1447,65 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
+	function getValue(el){
+	    "use strict";
+	    var tag = el.tagName;
+	    if(tag === 'TEXTAREA'){
+	        return el.value;
+	    }
+	    if(tag === 'SELECT'){
+	        if(el.multiple) {
+	            var options = el.options, result = [];
+	            for (var i = 0; i < options.length; i++) {
+	                if (options[i].selected) {
+	                    result.push(options[i].value);
+	                }
+	            }
+	            return result;
+	        }else{
+	            return el.value;
+	        }
+	    }
+	    if(tag === 'INPUT'){
+	        if(el.type === 'radio' || el.type === 'checkbox'){
+	            return el.checked ? el.value : null;
+	        }else{
+	            return el.value;
+	        }
+	    }
+	    return el.value;
+	}
+
+	function setValue(el, value){
+	    "use strict";
+	    var tag = el.tagName, valueMap = {}, i;
+	    if(utils.isArray(value)){
+	        for(i=0; i<value.length; i++){
+	            valueMap[value[i]] = true;
+	        }
+	    }
+	    if(tag === 'TEXTAREA'){
+	        el.value = value;
+	    }else if(tag === 'SELECT'){
+	        if(el.multiple) {
+	            var options = el.options, option;
+	            for (i = 0; i < options.length; i++) {
+	                option = options[i];
+	                options[i].selected = option.value == value || option.value in valueMap;
+	            }
+	        }else{
+	            el.value = value;
+	        }
+	    }else if(tag === 'INPUT'){
+	        if(el.type === 'radio' || el.type === 'checkbox'){
+	            el.checked = el.value == value || el.value in valueMap;
+	        }else{
+	            el.value = value;
+	        }
+	    }
+	    return el.value;
+	}
+
 	module.exports = {
 	    normalizeEvent: normalizeEvent,
 	    removeEventListeners: removeEventListeners,
@@ -1386,9 +1518,554 @@ return /******/ (function(modules) { // webpackBootstrap
 	    toggleClass: toggleClass,
 	    classes: classes,
 	    ready: ready,
-	    data: data
+	    data: data,
+	    getValue: getValue,
+	    setValue: setValue
 	};
 
+
+
+/***/ },
+/* 5 */
+/***/ function(module, exports, __webpack_require__) {
+
+	
+
+	var pattern = __webpack_require__(6), utils = __webpack_require__(1);
+
+	var roots = [], routeMap = {}, monitorRoutes = false, initialRoutePopped = false, firstRoute = true;
+
+
+	function handleRoute(){
+	    "use strict";
+	    var pathname = window.location.pathname;
+	    if(pathname.charAt(0) === '/'){
+	        pathname = pathname.substr(1);
+	    }
+	    var result = match(pathname);
+	    if(result){
+	        firstRoute = false;
+	        result.func(result.args);
+	    }else if(!firstRoute){
+	        window.location.reload();
+	    }
+	}
+
+	function bindRoute(){
+	    "use strict";
+	    if(!initialRoutePopped) {
+	        (function () {
+	            // There's nothing to do for older browsers ;)
+	            if (!window.addEventListener) {
+	                return;
+	            }
+	            var blockPopstateEvent = document.readyState !== "complete";
+	            window.addEventListener("load", function () {
+	                // The timeout ensures that popstate-events will be unblocked right
+	                // after the load event occured, but not in the same event-loop cycle.
+	                setTimeout(function () {
+	                    blockPopstateEvent = false;
+	                }, 0);
+	            }, false);
+	            window.addEventListener("popstate", function (evt) {
+	                if (blockPopstateEvent && document.readyState === "complete") {
+	                    evt.preventDefault();
+	                    evt.stopImmediatePropagation();
+	                }
+	            }, false);
+	        })();
+	        setTimeout(handleRoute);
+	    }
+	    initialRoutePopped = true;
+	    window.addEventListener("popstate", handleRoute);
+	}
+
+	function unbindRoute(){
+	    "use strict";
+	    window.removeEventListener("popstate", handleRoute);
+	}
+
+
+	function navigateRoute(url, options){
+	    "use strict";
+	    options = options || {};
+	    var history = window.history, func = options && options.replace ? "replaceState" : "pushState";
+	    history[func](null, options.title || "", url);
+	    if(!options.silent){
+	        handleRoute();
+	    }
+	}
+
+
+	function Route(args){
+	    "use strict";
+	    var callback = args.pop(),
+	        str = args.pop()||"",
+	        name = args.pop() || "";
+	    this.parser = pattern.parse(str, typeof callback === 'function');
+	    this.name = name;
+	    this.fullName = name;
+	    this.segments = [this.parser];
+	    var children = this.children = [], child;
+	    if(utils.isArray(callback)){
+	        var l = callback.length, item, i;
+	        for(i=0; i<l; i++){
+	            item = callback[i];
+	            child = item instanceof Route ? item : new Route(item);
+	            children.push(child);
+	        }
+	    }else{
+	        this.func = callback;
+	    }
+	}
+
+
+	Route.prototype.match = function(path, offset, depth){
+	    "use strict";
+	    offset = offset || 0;
+	    depth = depth || 0;
+
+	    var i, segments = this.segments.slice(depth), l = segments.length, segment, result, outcome = {};
+	    path = path.substr(offset);
+
+	    for(i=0; i<l; i++){
+	        segment = segments[i];
+	        if((result = segment(path))){
+	            path = path.substr(result.$lastIndex);
+	            utils.assign(outcome, result);
+	        }else{
+	            return false;
+	        }
+	    }
+	    delete outcome.$lastIndex;
+	    return outcome;
+	};
+
+
+	Route.prototype.reverse = function(args){
+	    "use strict";
+	    var i, segments = this.segments, l = segments.length, segment, result, fragments = [];
+	    for(i=0; i<l; i++){
+	        segment = segments[i];
+	        if((result = segment.reverse(args)) !== false){
+	            fragments.push(result);
+	        }else{
+	            return false;
+	        }
+	    }
+	    return fragments.join("");
+	};
+
+
+	Route.prototype.destroy = function(){
+	    "use strict";
+	    if(this.func){
+	        var value = routeMap[this.fullName];
+	        if(value === this){
+	            delete routeMap[this.fullName];
+	        }
+	    }
+	};
+
+
+	Route.prototype.initialize = function(fullNames, segments){
+	    "use strict";
+	    this.fullName = fullNames.length ? fullNames.join(":") + ":" + this.name : this.name;
+	    this.segments = segments.concat([this.parser]);
+	    if(this.func){
+	        if(this.fullName in routeMap){
+	            throw new Error(this.fullName + " is already a registered route");
+	        }
+	        routeMap[this.fullName] = this;
+	    }
+	};
+
+
+	function mount(router){
+	    "use strict";
+	    var stack = [{route: router, fullNames:[], segments: []}], item, i, l, children, child, route, name;
+	    while (stack.length){
+	        item = stack.pop();
+	        route = item.route;
+	        route.initialize(item.fullNames, item.segments);
+	        children = route.children;
+	        l = children.length;
+	        for(i=0; i<l; i++){
+	            child = children[i];
+	            name = route.name;
+	            stack.push({
+	                route: child,
+	                fullNames: item.fullNames.concat(name.length ? [name] : []),
+	                segments: item.segments.concat([route.parser])
+	            });
+	        }
+	    }
+	    roots.push(router);
+	    if(roots.length && !monitorRoutes){
+	        bindRoute();
+	        monitorRoutes = true;
+	    }
+	}
+
+
+	function unmount(router){
+	    "use strict";
+	    var i, l= roots.length;
+	    var stack = [router], item;
+	    while (stack.length){
+	        item = stack.pop();
+	        if(item.func){
+	            item.destroy();
+	        }else{
+	            stack.push.apply(stack, item.children);
+	        }
+	    }
+	    utils.remove(roots, router);
+	    if(!roots.length && monitorRoutes){
+	        unbindRoute();
+	        monitorRoutes = false;
+	    }
+	}
+
+
+	function reverse(name, options){
+	    "use strict";
+	    var route = routeMap[name];
+	    if(route){
+	        return route.reverse(options);
+	    }
+	}
+
+
+	function resolve(name){
+	    "use strict";
+	    var route = routeMap[name];
+	    if(route){
+	        return route.func;
+	    }else{
+	        return match(name).func;
+	    }
+	}
+
+
+	function match(path){
+	    "use strict";
+	    var stack = roots.slice(0), item, result;
+	    while (stack.length){
+	        item = stack.pop();
+	        result = item.match(path);
+	        if(result){
+	            if(item.func){
+	                return {func: item.func, args: result};
+	            }else {
+	                stack.push.apply(stack, item.children);
+	            }
+	        }
+	    }
+	    return false;
+	}
+
+	function Router(args){
+	    "use strict";
+	    this.routes = new Route(args);
+	}
+
+	Router.prototype.start = function startRouter(){
+	    "use strict";
+	    mount(this.routes);
+	}
+
+	Router.prototype.stop = function stopRouter(){
+	    "use strict";
+	    unmount(this.routes);
+	}
+
+
+	// u.component("router", {
+	//    initialize: function(){
+	//        "use strict";
+	//        var routes = [];
+	//        for(k in this.routes){
+	//            routes.push([pattern.parser(k, terminate), this.routes[k], function (args) {
+	//
+	//            }])
+	//        }
+	//        this.router = new Router(routes);
+	//        this.router.start();
+	//    },
+	//     onSwitch: function(){
+	//         "use strict";
+	//
+	//     },
+	//    render: function(ctx){
+	//        "use strict";
+	//         this.onSwitch();
+	//         return u(ctx.name, {params: ctx.params})
+	//    },
+	//    onDestroy: function(){
+	//        "use strict";
+	//         this.router.stop();
+	//    }
+	// });
+
+	module.exports = {
+	    resolve: resolve,
+	    reverse: reverse,
+	    router: function(path, name, arg){
+	        "use strict";
+	        return new Router(Array.prototype.slice.call(arguments));
+	    },
+	    route: navigateRoute,
+	};
+
+
+
+/***/ },
+/* 6 */
+/***/ function(module, exports) {
+
+	
+
+	var RX_SEGMENT = /^(\w*)(\?)?:(.+?)(?:\s*\{\s*(\d*)\s*(?:,\s*(\d*))?\s*\})?$/;
+
+
+	var types = {
+	    alpha: {
+	        match: function(value){
+	            "use strict";
+	            return "alpha" === value;
+	        },
+	        pattern: function(value){
+	            "use strict";
+	            return "[a-zA-Z]+";
+	        }
+	    },
+	    alnum: {
+	        match: function(value){
+	            "use strict";
+	            return "alnum" === value;
+	        },
+	        pattern: function(value){
+	            "use strict";
+	            return "\\w+";
+	        }
+	    },
+	    int: {
+	        match: function(value){
+	            "use strict";
+	            return value in {'num': 1, 'int': 1};
+	        },
+	        pattern: function(value){
+	            "use strict";
+	            return "\\d+";
+	        },
+	        coerce: function(value){
+	            "use strict";
+	            return parseInt(value);
+	        }
+	    },
+	    any: {
+	        match: function(value){
+	            "use strict";
+	            return value === 'any';
+	        },
+	        pattern: function(value){
+	            "use strict";
+	            return '[^/]*';
+	        }
+	    },
+	    greedyAny: {
+	        match: function(value){
+	            "use strict";
+	            return value === '*';
+	        },
+	        pattern: function(value){
+	            "use strict";
+	            return '.*';
+	        }
+	    },
+	    choice: {
+	        match: function (value) {
+	            "use strict";
+	            return value.charAt(0) === '(' && value.charAt(value.length-1) === ')';
+	        },
+	        pattern: function(value){
+	            "use strict";
+	            var parts = value.substring(1, value.length-1).split(",");
+	            return parts.join("|");
+	        }
+	    },
+	    name: {
+	        match: function (value) {
+	            "use strict";
+	            return value === 'name';
+	        },
+	        pattern: function(){
+	            "use strict";
+	            return '[a-zA-Z]\\w+';
+	        }
+	    }
+	};
+
+
+	function register(name, options){
+	    "use strict";
+	    types[name] = options;
+	}
+
+
+	function select(str) {
+	    "use strict";
+	    var key, value;
+	    for(key in types){
+	        if(types.hasOwnProperty(key) && (value = types[key]) && value.match(str)){
+	            return {pattern: value.pattern(str), coerce: value.coerce};
+	        }
+	    }
+	    return {pattern: str};
+	}
+
+
+	function regex(value, terminate, names, converters, segments){
+	    "use strict";
+	    var size = value.length, endSlash = "", slash;
+
+	    names = names || [];
+
+	    converters = converters || [];
+
+	    segments = segments || [];
+
+	    if(value.charAt(size-1) === '/'){
+	        endSlash = "/";
+	        value = value.substring(0, size-1);
+	    }
+
+	    var parts = value.split("/"), limit = parts.length, result = [], i, p, match, name, pattern,
+	        optional, high, low, range, count = 0, obj, tail = terminate ? "$" : "";
+
+	    for(i=0; i< limit; i++){
+	        p = parts[i];
+	        slash = i===limit-1 ? "" : "/";
+	        match = RX_SEGMENT.exec(p);
+	        if(match){
+	            name = match[1];
+	            optional = !!match[2] || match[3] === '*';
+	            obj = select(match[3]);
+	            pattern = obj.pattern;
+	            high = parseInt(match[4]);
+	            low = parseInt(match[5]);
+	            if(isNaN(high) && isNaN(low)){
+	                range = "";
+	            }else{
+	                range = "{" + low||"" + "," + high||"" + "}";
+	            }
+	            pattern = "(" + pattern + ")" + range;
+	            segments.push({name: name, index: count, regex: new RegExp(pattern), optional: optional});
+	            pattern = pattern + slash;
+	            if(optional){
+	                pattern = "(?:" + pattern + ")?";
+	            }
+	            result.push(pattern);
+	            names.push(name);
+	            converters.push(obj.coerce);
+	            count += 1;
+	        }else {
+	            result.push(p + slash);
+	            segments.push(p);
+	        }
+	    }
+
+	    if(endSlash){
+	        segments.push("");
+	    }
+
+	    return new RegExp("^" + result.join("") + endSlash + tail);
+	}
+
+
+	function parse(rx, args, converters, template){
+	    "use strict";
+	    var match = rx.exec(template), i, l, result = {}, value, limit = args.length, total = 0, func;
+	    if(match){
+	        l = match.length;
+	        for(i=0; i<l; i++){
+	            value = match[i+1];
+	            if(value !== undefined){
+	                ++total;
+	                if(i < limit){
+	                    func = converters[i];
+	                    if(typeof func === 'function'){
+	                        value = func(value);
+	                    }
+	                    result[args[i]] = value;
+	                }
+	                result[i] = value;
+	            }
+	        }
+	        result.$lastIndex = match[0].length;
+	        return result;
+	    }
+	    return false;
+	}
+
+
+	function createUrl(segments, args){
+	    "use strict";
+	    var i, limit = segments.length, part, result = [], value, actual;
+	    args = args || {};
+	    for(i=0; i < limit; i++){
+	        part = segments[i];
+	        if(typeof part === 'object'){
+	            actual = undefined;
+	            if(args.hasOwnProperty(part.name)){
+	                actual = args[part.name];
+	            }else if(args.hasOwnProperty(part.index)){
+	                actual = args[part.index];
+	            }
+	            if(actual === undefined){
+	                if(!part.optional){
+	                    return false;
+	                }
+	            }else{
+	                value = String(actual);
+	                if(!part.regex.test(value)){
+	                    return false;
+	                }
+	                result.push(value);
+	            }
+	        }else{
+	            result.push(part);
+	        }
+	    }
+	    return result.join("/");
+	}
+
+
+	function parser(value, terminate){
+	    "use strict";
+	    var segments = [], args = [], converters = [], rx = regex(value, terminate, args, converters, segments);
+
+	    var func = function (template) {
+	        return parse(rx, args, converters, template);
+	    };
+
+	    var reverse = function(values){
+	        return createUrl(segments, values);
+	    };
+
+	    func.regex = rx;
+
+	    func.reverse = reverse;
+
+	    return func;
+	}
+
+
+	module.exports = {
+	    parse: parser,
+	    register: register
+	};
 
 
 /***/ }

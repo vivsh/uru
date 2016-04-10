@@ -1,8 +1,5 @@
 
-var nodes = require("./nodes");
-
-
-var requestRunning = false, nextTick = window.requestAnimationFrame || window.setTimeout;
+var utils = require("./utils"), nodes = require("./nodes");
 
 
 function Queue(){
@@ -11,6 +8,7 @@ function Queue(){
     this.next = this.next.bind(this);
     this._running = false;
 }
+
 
 Queue.prototype = {
     constructor:Queue,
@@ -27,7 +25,7 @@ Queue.prototype = {
         "use strict";
         var self = this;
         if(self.items.length){
-            nextTick(function(){
+            nodes.nextTick(function(){
                 var item = self.items.shift();
                 item(self.next);
             });
@@ -43,38 +41,3 @@ Queue.prototype = {
         });
     }
 };
-
-function updateUI(){
-    "use strict";
-    nodes.update();
-    requestRunning = false;
-}
-
-
-function redraw(){
-    "use strict";
-    if(!requestRunning){
-        requestRunning = true;
-        nextTick(updateUI);
-    }
-}
-
-
-function render(func){
-    "use strict";
-    var req = requestRunning;
-    requestRunning = true;
-    nextTick(func);
-    requestRunning = req;
-}
-
-
-module.exports = {
-    Queue: Queue,
-    redraw: redraw,
-    render: render,
-    nextTick: function nextFrame(func){
-        "use strict";
-        nextTick(func);
-    }
-}

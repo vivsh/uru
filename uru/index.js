@@ -3,8 +3,8 @@
 var utils = require("./utils"),
     Component = require("./component"),
     nodes = require("./nodes"),
-    draw = require("./draw"),
-    dom = require("./dom");
+    dom = require("./dom"),
+    routes = require("./routes");
 
 
 var components = {};
@@ -138,7 +138,7 @@ function unmount(node){
 uru.mount = function(){
     "use strict";
     var args = arguments;
-    draw.render(function(){
+    nodes.render(function(){
         mount.apply(null, args);
     });
 }
@@ -146,14 +146,14 @@ uru.mount = function(){
 uru.unmount = function(){
     "use strict";
     var args = arguments;
-    draw.render(function(){
+    nodes.render(function(){
         unmount.apply(null, args);
     });
 }
 
 uru.automount = function automount(){
     "use strict";
-    draw.render(function(){
+    nodes.render(function(){
         dom.ready(function(){
            var matches = document.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
            for(i=0; i<matches.length; i++){
@@ -171,11 +171,23 @@ uru.automount = function automount(){
 }
 
 
-uru.redraw = draw.redraw;
+uru.withAttr = function(attr, callback){
+    "use strict";
+    return function (event) {
+        var value = event.target.attr;
+        if(utils.isString(callback)){
+            this.set({callback: value});
+        }else{
+            callback.call(this, value);
+        }
+    };
+}
 
-uru.queue = draw.Queue;
+uru.redraw = nodes.redraw;
 
-uru.nextTick = draw.nextTick;
+uru.queue = nodes.Queue;
+
+uru.nextTick = nodes.nextTick;
 
 uru.dom = dom;
 
@@ -186,5 +198,7 @@ uru.Component = Component;
 uru.hook = nodes.hook;
 
 uru.classes = dom.classes;
+
+uru.routes = routes;
 
 module.exports = uru;

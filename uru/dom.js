@@ -51,10 +51,15 @@ function normalizeEvent(event) {
             this.returnValue = false;
         };
     }
-    event.target = event.target || event.srcElement;
-    event.relatedTarget = event.relatedTarget || event.toElement || event.fromElement;
-    event.charCode = event.charCode || event.keyCode;
-    event.character = String.fromCharCode(event.charCode);
+    if(!('target' in event)){
+        event.target = event.srcElement;
+    }
+    if(!('relatedTarget' in event)){
+        event.relatedTarget = event.toElement || event.fromElement;
+    }
+    if(!('charCode' in event)){
+        event.charCode = event.keyCode;
+    }
     return event;
 }
 
@@ -178,6 +183,65 @@ function data(el, name){
 }
 
 
+function getValue(el){
+    "use strict";
+    var tag = el.tagName;
+    if(tag === 'TEXTAREA'){
+        return el.value;
+    }
+    if(tag === 'SELECT'){
+        if(el.multiple) {
+            var options = el.options, result = [];
+            for (var i = 0; i < options.length; i++) {
+                if (options[i].selected) {
+                    result.push(options[i].value);
+                }
+            }
+            return result;
+        }else{
+            return el.value;
+        }
+    }
+    if(tag === 'INPUT'){
+        if(el.type === 'radio' || el.type === 'checkbox'){
+            return el.checked ? el.value : null;
+        }else{
+            return el.value;
+        }
+    }
+    return el.value;
+}
+
+function setValue(el, value){
+    "use strict";
+    var tag = el.tagName, valueMap = {}, i;
+    if(utils.isArray(value)){
+        for(i=0; i<value.length; i++){
+            valueMap[value[i]] = true;
+        }
+    }
+    if(tag === 'TEXTAREA'){
+        el.value = value;
+    }else if(tag === 'SELECT'){
+        if(el.multiple) {
+            var options = el.options, option;
+            for (i = 0; i < options.length; i++) {
+                option = options[i];
+                options[i].selected = option.value == value || option.value in valueMap;
+            }
+        }else{
+            el.value = value;
+        }
+    }else if(tag === 'INPUT'){
+        if(el.type === 'radio' || el.type === 'checkbox'){
+            el.checked = el.value == value || el.value in valueMap;
+        }else{
+            el.value = value;
+        }
+    }
+    return el.value;
+}
+
 module.exports = {
     normalizeEvent: normalizeEvent,
     removeEventListeners: removeEventListeners,
@@ -190,6 +254,8 @@ module.exports = {
     toggleClass: toggleClass,
     classes: classes,
     ready: ready,
-    data: data
+    data: data,
+    getValue: getValue,
+    setValue: setValue
 };
 
