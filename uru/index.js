@@ -7,7 +7,7 @@ var utils = require("./utils"),
     routes = require("./routes");
 
 
-var components = {};
+var components = {}, uruStarted = false;
 
 function parseTag(value, attrs){
     "use strict";
@@ -151,8 +151,12 @@ uru.unmount = function(){
     });
 }
 
-uru.automount = function automount(){
+function runUru(options){
     "use strict";
+    if(uruStarted){
+        return;
+    }
+    var settings = options || {};
     nodes.render(function(){
         dom.ready(function(){
            var matches = document.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
@@ -166,9 +170,15 @@ uru.automount = function automount(){
                el.__uruComponent = true;
                mount(uru(name, options), el);
            }
+            if(!settings.disableLinkRouting){
+                routes.mount();
+            }
         });
     });
+    uruStarted = true;
 }
+
+uru.automount = runUru;
 
 
 uru.tie = function(attr, callback){
@@ -210,4 +220,12 @@ uru.router = function(values){
     return new routes.Router(values);
 };
 
+uru.resolve = routes.resolve;
+
+uru.reverse = routes.reverse;
+
 module.exports = uru;
+
+if(window){
+    runUru();
+}

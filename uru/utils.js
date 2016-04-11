@@ -146,6 +146,20 @@ function take(object, key, defaultValue){
     return value;
 }
 
+var checkDomain = function (url) {
+    "use strict";
+    if (url.indexOf('//') === 0) {
+        url = location.protocol + url;
+    }
+    return url.toLowerCase().replace(/([a-z])?:\/\//, '$1').split('/')[0];
+};
+
+var isExternalUrl = function (url) {
+    "use strict";
+    return ( ( url.indexOf(':') > -1 || url.indexOf('//') > -1 ) && checkDomain(location.href) !== checkDomain(url) );
+};
+
+
 
 module.exports = {
     isArray: isArray,
@@ -160,5 +174,6 @@ module.exports = {
     take: take,
     Class: Class,
     assign: assign,
-    noop: noop
+    noop: noop,
+    isExternalUrl: isExternalUrl
 };
