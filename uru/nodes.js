@@ -99,14 +99,22 @@ function domAddActionEventName(el){
 }
 
 
+function domData(el) {
+    "use strict";
+    var key = "__uruData";
+    var data = el[key]  || (el[key] = {events: {}});
+    return data;
+}
+
+
 function domAddEvent(node, el, eventName, callback) {
     "use strict";
-    var events = node.events, name = eventName;
+    var events = domData(el).events, name = eventName;
     if(name === 'action'){
         name = domAddActionEventName(el);
     }
-    if(name in events){
-        domRemoveEvent(el, name);
+    if(eventName in events){
+        domRemoveEvent(node, el, eventName);
     }
     if(callback){
         var func = function (event) {
@@ -123,7 +131,7 @@ function domAddEvent(node, el, eventName, callback) {
 
 function domRemoveEvent(node, el, eventName) {
     "use strict";
-    var events = node.events, func, name = eventName;
+    var events = domData(el).events, func, name = eventName;
     if(arguments.length < 3){
         for(name in events){
             if(events.hasOwnProperty(name)){

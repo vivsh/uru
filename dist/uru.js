@@ -227,17 +227,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	uru.withAttr = function(attr, callback){
+	uru.tie = function(attr, callback){
 	    "use strict";
 	    return function (event) {
-	        var value = event.target.attr;
+	        var value = event.target[attr], data = {};
 	        if(utils.isString(callback)){
-	            this.set({callback: value});
+	            data[callback] = value;
+	            this.set(data);
 	        }else{
 	            callback.call(this, value);
 	        }
 	    };
-	}
+	};
+
 
 	uru.redraw = nodes.redraw;
 
@@ -470,6 +472,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            if (values.hasOwnProperty(key)) {
 	                value = values[key];
 	                initial = state[key];
+	                if(typeof value === 'object'){
+	                    this.$dirty = true;
+	                }
 	                if (value !== initial) {
 	                    this.$dirty = true;
 	                    state[key] = value;
@@ -607,39 +612,52 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	function domAddEvent(node, el, name, callback) {
+	function domData(el) {
 	    "use strict";
-	    var events = node.events;
-	    if(name in events){
-	        domRemoveEvent(el, name);
+	    var key = "__uruData";
+	    var data = el[key]  || (el[key] = {events: {}});
+	    return data;
+	}
+
+
+	function domAddEvent(node, el, eventName, callback) {
+	    "use strict";
+	    var events = domData(el).events, name = eventName;
+	    if(name === 'action'){
+	        name = domAddActionEventName(el);
+	    }
+	    if(eventName in events){
+	        domRemoveEvent(node, el, eventName);
 	    }
 	    if(callback){
 	        var func = function (event) {
 	            event = dom.normalizeEvent(event);
 	            callback.call(node.owner, event);
-	            redraw();
+	            if(eventName === 'action'){
+	                redraw();
+	            }
 	        };
-	        events[name] = func;
-	        if(name === 'action'){
-	            name = domAddActionEventName(el);
-	        }
+	        events[eventName] = func;
 	        el.addEventListener(name, func, false);
 	    }
 	}
 
-	function domRemoveEvent(node, el, name) {
+	function domRemoveEvent(node, el, eventName) {
 	    "use strict";
-	    var events = node.events, func;
+	    var events = domData(el).events, func, name = eventName;
 	    if(arguments.length < 3){
 	        for(name in events){
 	            if(events.hasOwnProperty(name)){
-	                el.removeEventListener(name, events[name]);
+	                domRemoveEvent(node, el, name);
 	            }
 	        }
 	    }else{
-	        func = events[name];
+	        func = events[eventName];
+	        if(name === 'action'){
+	            name = domAddActionEventName(el);
+	        }
 	        el.removeEventListener(name, func);
-	        delete events[name];
+	        delete events[eventName];
 	    }
 	}
 
@@ -1533,7 +1551,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var pattern = __webpack_require__(6), utils = __webpack_require__(1);
 
-	var roots = [], routeMap = {}, monitorRoutes = false, initialRoutePopped = false, firstRoute = true;
+	var routerSet = [], monitorRoutes = false, initialRoutePopped = false, firstRoute = true, links = [];
 
 
 	function handleRoute(){
@@ -1542,11 +1560,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if(pathname.charAt(0) === '/'){
 	        pathname = pathname.substr(1);
 	    }
-	    var result = match(pathname);
+	    var result = matchRoute(pathname);
 	    if(result){
 	        firstRoute = false;
 	        result.func(result.args);
 	    }else if(!firstRoute){
+	        firstRoute = false;
 	        window.location.reload();
 	    }
 	}
@@ -1574,11 +1593,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	            }, false);
 	        })();
-	        setTimeout(handleRoute);
+	        // setTimeout(handleRoute);
 	    }
 	    initialRoutePopped = true;
 	    window.addEventListener("popstate", handleRoute);
 	}
+
 
 	function unbindRoute(){
 	    "use strict";
@@ -1597,228 +1617,130 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	function Route(args){
+	function matchRoute(path){
 	    "use strict";
-	    var callback = args.pop(),
-	        str = args.pop()||"",
-	        name = args.pop() || "";
-	    this.parser = pattern.parse(str, typeof callback === 'function');
-	    this.name = name;
-	    this.fullName = name;
-	    this.segments = [this.parser];
-	    var children = this.children = [], child;
-	    if(utils.isArray(callback)){
-	        var l = callback.length, item, i;
-	        for(i=0; i<l; i++){
-	            item = callback[i];
-	            child = item instanceof Route ? item : new Route(item);
-	            children.push(child);
+	    var i, router, link, result;
+	    for(i=0; i< routerSet.length; i++){
+	        router = routerSet[i];
+	        result = router.match(path);
+	        if(result){
+	            return result;
 	        }
-	    }else{
-	        this.func = callback;
+	    }
+	    return false;
+	}
+
+	function link(){
+	    "use strict";
+	    var args = Array.prototype.slice.call(arguments), stack = args, item;
+	    if(args.length === 0){
+	        return links.slice(0);
+	    }
+	    while(stack.length){
+	        item = stack.pop();
+	        if(utils.isArray(item)){
+	            stack.push.apply(stack, item);
+	        }else{
+	            item = utils.assign({}, item);
+	            item.match = pattern.parse(item.pattern, true);
+	            item.reverse = item.match.reverse;
+	            links.push(item);
+	        }
+	    }
+	}
+
+	function find(name){
+	    "use strict";
+	    var i;
+	    for(i=0; i<links.length; i++){
+	        if(links[i].name === name){
+	            return links[i];
+	        }
+	    }
+	}
+
+	function resolve(url){
+	    "use strict";
+	    var i, match;
+	    if(url.charAt(0) === '/'){
+	        url = url.substr(1);
+	    }
+	    for(i=0; i<links.length; i++){
+	        match = links[i].match(url);
+	        if(match){
+	            links[i].params = match;
+	            return links[i];
+	        }
+	    }
+	    return false;
+	}
+
+
+	function Router(linkMap){
+	    "use strict";
+	    var routes = this.routes = [], i, name, ln, value;
+	    for(name in linkMap){
+	        if(linkMap.hasOwnProperty(name)){
+	            value = linkMap[name];
+	            ln = find(name);
+	            routes.push({link: ln, func: value});
+	        }
 	    }
 	}
 
 
-	Route.prototype.match = function(path, offset, depth){
-	    "use strict";
-	    offset = offset || 0;
-	    depth = depth || 0;
-
-	    var i, segments = this.segments.slice(depth), l = segments.length, segment, result, outcome = {};
-	    path = path.substr(offset);
-
-	    for(i=0; i<l; i++){
-	        segment = segments[i];
-	        if((result = segment(path))){
-	            path = path.substr(result.$lastIndex);
-	            utils.assign(outcome, result);
-	        }else{
-	            return false;
-	        }
-	    }
-	    delete outcome.$lastIndex;
-	    return outcome;
-	};
-
-
-	Route.prototype.reverse = function(args){
-	    "use strict";
-	    var i, segments = this.segments, l = segments.length, segment, result, fragments = [];
-	    for(i=0; i<l; i++){
-	        segment = segments[i];
-	        if((result = segment.reverse(args)) !== false){
-	            fragments.push(result);
-	        }else{
-	            return false;
-	        }
-	    }
-	    return fragments.join("");
-	};
-
-
-	Route.prototype.destroy = function(){
-	    "use strict";
-	    if(this.func){
-	        var value = routeMap[this.fullName];
-	        if(value === this){
-	            delete routeMap[this.fullName];
-	        }
-	    }
-	};
-
-
-	Route.prototype.initialize = function(fullNames, segments){
-	    "use strict";
-	    this.fullName = fullNames.length ? fullNames.join(":") + ":" + this.name : this.name;
-	    this.segments = segments.concat([this.parser]);
-	    if(this.func){
-	        if(this.fullName in routeMap){
-	            throw new Error(this.fullName + " is already a registered route");
-	        }
-	        routeMap[this.fullName] = this;
-	    }
-	};
-
-
-	function mount(router){
-	    "use strict";
-	    var stack = [{route: router, fullNames:[], segments: []}], item, i, l, children, child, route, name;
-	    while (stack.length){
-	        item = stack.pop();
-	        route = item.route;
-	        route.initialize(item.fullNames, item.segments);
-	        children = route.children;
-	        l = children.length;
-	        for(i=0; i<l; i++){
-	            child = children[i];
-	            name = route.name;
-	            stack.push({
-	                route: child,
-	                fullNames: item.fullNames.concat(name.length ? [name] : []),
-	                segments: item.segments.concat([route.parser])
-	            });
-	        }
-	    }
-	    roots.push(router);
-	    if(roots.length && !monitorRoutes){
+	Router.prototype.start = function (silent) {
+	  "use strict";
+	    routerSet.push(this);
+	    if(routerSet.length && !monitorRoutes){
 	        bindRoute();
 	        monitorRoutes = true;
 	    }
+	    if(!silent){
+	        var result = this.match(window.location.pathname);
+	        if(result){
+	            result.func(result.args);
+	        }
+	    }
 	}
 
 
-	function unmount(router){
-	    "use strict";
-	    var i, l= roots.length;
-	    var stack = [router], item;
-	    while (stack.length){
-	        item = stack.pop();
-	        if(item.func){
-	            item.destroy();
-	        }else{
-	            stack.push.apply(stack, item.children);
+	Router.prototype.match = function (path) {
+	  "use strict";
+	    var routes = this.routes, i, ln, route, match;
+	    if(path.charAt(0) === '/'){
+	        path = path.substr(1);
+	    }
+	    for(i=0; i< routes.length; i++){
+	        route = routes[i];
+	        ln = route.link;
+	        match = ln.match(path);
+	        if(match){
+	            route.args = match;
+	            return route;
 	        }
 	    }
-	    utils.remove(roots, router);
-	    if(!roots.length && monitorRoutes){
+	    return false;
+	}
+
+
+	Router.prototype.stop = function () {
+	  "use strict";
+	    utils.remove(routerSet, this);
+	    if(!routerSet.length && monitorRoutes){
 	        unbindRoute();
 	        monitorRoutes = false;
 	    }
 	}
 
 
-	function reverse(name, options){
-	    "use strict";
-	    var route = routeMap[name];
-	    if(route){
-	        return route.reverse(options);
-	    }
-	}
-
-
-	function resolve(name){
-	    "use strict";
-	    var route = routeMap[name];
-	    if(route){
-	        return route.func;
-	    }else{
-	        return match(name).func;
-	    }
-	}
-
-
-	function match(path){
-	    "use strict";
-	    var stack = roots.slice(0), item, result;
-	    while (stack.length){
-	        item = stack.pop();
-	        result = item.match(path);
-	        if(result){
-	            if(item.func){
-	                return {func: item.func, args: result};
-	            }else {
-	                stack.push.apply(stack, item.children);
-	            }
-	        }
-	    }
-	    return false;
-	}
-
-	function Router(args){
-	    "use strict";
-	    this.routes = new Route(args);
-	}
-
-	Router.prototype.start = function startRouter(){
-	    "use strict";
-	    mount(this.routes);
-	}
-
-	Router.prototype.stop = function stopRouter(){
-	    "use strict";
-	    unmount(this.routes);
-	}
-
-
-	// u.component("router", {
-	//    initialize: function(){
-	//        "use strict";
-	//        var routes = [];
-	//        for(k in this.routes){
-	//            routes.push([pattern.parser(k, terminate), this.routes[k], function (args) {
-	//
-	//            }])
-	//        }
-	//        this.router = new Router(routes);
-	//        this.router.start();
-	//    },
-	//     onSwitch: function(){
-	//         "use strict";
-	//
-	//     },
-	//    render: function(ctx){
-	//        "use strict";
-	//         this.onSwitch();
-	//         return u(ctx.name, {params: ctx.params})
-	//    },
-	//    onDestroy: function(){
-	//        "use strict";
-	//         this.router.stop();
-	//    }
-	// });
-
 	module.exports = {
+	    Router: Router,
+	    link: link,
+	    find: find,
 	    resolve: resolve,
-	    reverse: reverse,
-	    router: function(path, name, arg){
-	        "use strict";
-	        return new Router(Array.prototype.slice.call(arguments));
-	    },
-	    route: navigateRoute,
+	    route: navigateRoute
 	};
-
-
 
 /***/ },
 /* 6 */

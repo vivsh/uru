@@ -171,17 +171,19 @@ uru.automount = function automount(){
 }
 
 
-uru.withAttr = function(attr, callback){
+uru.tie = function(attr, callback){
     "use strict";
     return function (event) {
-        var value = event.target.attr;
+        var value = event.target[attr], data = {};
         if(utils.isString(callback)){
-            this.set({callback: value});
+            data[callback] = value;
+            this.set(data);
         }else{
             callback.call(this, value);
         }
     };
-}
+};
+
 
 uru.redraw = nodes.redraw;
 

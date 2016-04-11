@@ -35,6 +35,9 @@ Component.prototype.set = function(values, silent){
             if (values.hasOwnProperty(key)) {
                 value = values[key];
                 initial = state[key];
+                if(typeof value === 'object'){
+                    this.$dirty = true;
+                }
                 if (value !== initial) {
                     this.$dirty = true;
                     state[key] = value;
