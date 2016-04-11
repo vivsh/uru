@@ -33,7 +33,7 @@ function parseTag(value, attrs){
 
     if(classes.length){
         if(("class" in attrs) || ("classes" in attrs)){
-            attrs['class'] = dom.classes(classes, attrs['class'], attrs["classes"]);
+            attrs['class'] = dom.classes(classes, attrs['class'], attrs.classes);
             delete attrs.classes;
         }else{
             attrs['class'] = classes.join(" ");
@@ -141,7 +141,7 @@ uru.mount = function(){
     nodes.render(function(){
         mount.apply(null, args);
     });
-}
+};
 
 uru.unmount = function(){
     "use strict";
@@ -149,7 +149,7 @@ uru.unmount = function(){
     nodes.render(function(){
         unmount.apply(null, args);
     });
-}
+};
 
 function runUru(options){
     "use strict";
@@ -194,6 +194,43 @@ uru.tie = function(attr, callback){
     };
 };
 
+uru.component("router", {
+    routes: [
+
+    ],
+    initialize: function () {
+        "use strict";
+        var routes = {}, self = this, i, defined = this.routes, value;
+        for(i=0; i<defined.length; i++){
+            value = defined[i];
+            routes[value] = function(params){
+                self.set({component: value, params: params});
+            };//jshint ignore:line
+        }
+        this.router = uru.router(routes);
+        this.router.start();
+    },
+    onUnmount: function () {
+        "use strict";
+      this.router.stop();
+    },
+    onSwitch: function(ctx){
+        "use strict";
+    },
+    render: function(ctx){
+        "use strict";
+        this.onSwitch(ctx);
+        if(ctx.component){
+            return uru(ctx.component, {params: ctx.params});
+        }else{
+            return this.notfound();
+        }
+    },
+    notfound: function(){
+        "use strict";
+        return uru("h1", "Oops ! Not found !!!!");
+    }
+});
 
 uru.redraw = nodes.redraw;
 
