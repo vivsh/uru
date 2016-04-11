@@ -63,7 +63,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    routes = __webpack_require__(5);
 
 
-	var components = {};
+	var components = {}, uruStarted = false;
 
 	function parseTag(value, attrs){
 	    "use strict";
@@ -207,8 +207,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    });
 	}
 
-	uru.automount = function automount(){
+	function runUru(options){
 	    "use strict";
+	    if(uruStarted){
+	        return;
+	    }
+	    var settings = options || {};
 	    nodes.render(function(){
 	        dom.ready(function(){
 	           var matches = document.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
@@ -222,9 +226,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	               el.__uruComponent = true;
 	               mount(uru(name, options), el);
 	           }
+	            if(!settings.disableLinkRouting){
+	                routes.mount();
+	            }
 	        });
 	    });
+	    uruStarted = true;
 	}
+
+	uru.automount = runUru;
 
 
 	uru.tie = function(attr, callback){
@@ -266,8 +276,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return new routes.Router(values);
 	};
 
+	uru.resolve = routes.resolve;
+
+	uru.reverse = routes.reverse;
+
 	module.exports = uru;
 
+	if(window){
+	    runUru();
+	}
 
 /***/ },
 /* 1 */
@@ -421,6 +438,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return value;
 	}
 
+	var checkDomain = function (url) {
+	    "use strict";
+	    if (url.indexOf('//') === 0) {
+	        url = location.protocol + url;
+	    }
+	    return url.toLowerCase().replace(/([a-z])?:\/\//, '$1').split('/')[0];
+	};
+
+	var isExternalUrl = function (url) {
+	    "use strict";
+	    return ( ( url.indexOf(':') > -1 || url.indexOf('//') > -1 ) && checkDomain(location.href) !== checkDomain(url) );
+	};
+
+
 
 	module.exports = {
 	    isArray: isArray,
@@ -435,7 +466,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    take: take,
 	    Class: Class,
 	    assign: assign,
-	    noop: noop
+	    noop: noop,
+	    isExternalUrl: isExternalUrl
 	};
 
 /***/ },
@@ -481,8 +513,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	                initial = state[key];
 	                if(typeof value === 'object'){
 	                    this.$dirty = true;
-	                }
-	                if (value !== initial) {
+	                    state[key] = value;
+	                }else if (value !== initial) {
 	                    this.$dirty = true;
 	                    state[key] = value;
 	                }
@@ -1556,16 +1588,24 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	
 
-	var pattern = __webpack_require__(6), utils = __webpack_require__(1);
+	var pattern = __webpack_require__(6), utils = __webpack_require__(1), dom = __webpack_require__(4);
 
-	var routerSet = [], monitorRoutes = false, initialRoutePopped = false, firstRoute = true, links = [];
+	var routerSet = [], monitorRoutes = false, initialRoutePopped = false, firstRoute = true, links = [], previousRoute;
 
+
+	function normalizePathName(pathname){
+	    "use strict";
+	    if(pathname.charAt(0) === '/'){
+	        pathname = pathname.substr(1);
+	    }
+	    return pathname;
+	}
 
 	function handleRoute(){
 	    "use strict";
-	    var pathname = window.location.pathname;
-	    if(pathname.charAt(0) === '/'){
-	        pathname = pathname.substr(1);
+	    var pathname = normalizePathName(window.location.pathname), href = window.location.href;
+	    if(href === previousRoute){
+	        return;
 	    }
 	    var result = matchRoute(pathname);
 	    if(result){
@@ -1575,6 +1615,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        firstRoute = false;
 	        window.location.reload();
 	    }
+	    previousRoute = href;
 	}
 
 	function bindRoute(){
@@ -1601,6 +1642,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }, false);
 	        })();
 	        // setTimeout(handleRoute);
+
+	        previousRoute = window.location.href;
 	    }
 	    initialRoutePopped = true;
 	    window.addEventListener("popstate", handleRoute);
@@ -1689,6 +1732,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
+	function reverse(name, args){
+	    "use strict";
+	    var ln = find(name), path;
+	    if(ln){
+	        path = ln.reverse(args);
+	        if(path){
+	            return "/" + path;
+	        }
+	    }
+	    return false;
+	}
+
+
 	function Router(linkMap){
 	    "use strict";
 	    var routes = this.routes = [], i, name, ln, value;
@@ -1746,12 +1802,25 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	}
 
+	function mount(){
+	    "use strict";
+	    document.addEventListener('click', function(event){
+	        event = dom.normalizeEvent(event);
+	        var target = event.target;
+	        if(target.tagName === 'A' && target.href && !utils.isExternalUrl(target.href)){
+	            navigateRoute(target.pathname);
+	            event.preventDefault();
+	        }
+	    }, false);
+	}
 
 	module.exports = {
 	    Router: Router,
 	    link: link,
 	    resolve: resolve,
-	    route: navigateRoute
+	    route: navigateRoute,
+	    reverse: reverse,
+	    mount: mount
 	};
 
 /***/ },
