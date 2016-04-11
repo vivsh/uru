@@ -13,7 +13,7 @@ function normalizePathName(pathname){
     return pathname;
 }
 
-function handleRoute(){
+function handleRoute(event){
     "use strict";
     var pathname = normalizePathName(window.location.pathname), href = window.location.href;
     if(href === previousRoute){
@@ -22,6 +22,11 @@ function handleRoute(){
     var result = matchRoute(pathname);
     if(result){
         firstRoute = false;
+        if(event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            console.log("Blocked propagation !!");
+        }
         result.func(result.args);
     }else if(!firstRoute){
         firstRoute = false;
