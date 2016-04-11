@@ -37,8 +37,8 @@ Component.prototype.set = function(values, silent){
                 initial = state[key];
                 if(typeof value === 'object'){
                     this.$dirty = true;
-                }
-                if (value !== initial) {
+                    state[key] = value;
+                }else if (value !== initial) {
                     this.$dirty = true;
                     state[key] = value;
                 }
