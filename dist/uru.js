@@ -257,7 +257,14 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	uru.classes = dom.classes;
 
-	uru.routes = routes;
+	uru.route = routes.route;
+
+	uru.link = routes.link;
+
+	uru.router = function(values){
+	    "use strict";
+	    return new routes.Router(values);
+	};
 
 	module.exports = uru;
 
@@ -1636,12 +1643,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if(args.length === 0){
 	        return links.slice(0);
 	    }
+	    if(args.length === 1 && utils.isString(args[0])){
+	        return find(args[0]);
+	    }
 	    while(stack.length){
 	        item = stack.pop();
 	        if(utils.isArray(item)){
 	            stack.push.apply(stack, item);
 	        }else{
 	            item = utils.assign({}, item);
+	            if(!item.pattern || !item.name){
+	                throw new Error("No pattern or name defined for the link");
+	            }
 	            item.match = pattern.parse(item.pattern, true);
 	            item.reverse = item.match.reverse;
 	            links.push(item);
@@ -1737,7 +1750,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = {
 	    Router: Router,
 	    link: link,
-	    find: find,
 	    resolve: resolve,
 	    route: navigateRoute
 	};

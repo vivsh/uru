@@ -201,6 +201,13 @@ uru.hook = nodes.hook;
 
 uru.classes = dom.classes;
 
-uru.routes = routes;
+uru.route = routes.route;
+
+uru.link = routes.link;
+
+uru.router = function(values){
+    "use strict";
+    return new routes.Router(values);
+};
 
 module.exports = uru;
