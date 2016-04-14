@@ -56,11 +56,12 @@ function uru(tagName){
         if(utils.isArray(item)){
             stack.unshift.apply(stack, item);
         }else if(item){
-            i += 1;
             if(!(item instanceof nodes.DomNode) && !(item instanceof nodes.ComponentNode)){
                 item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
             }
             children.push(item);
+            item.index = i;
+            i += 1;
         }
     }
     

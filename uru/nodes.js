@@ -692,6 +692,7 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
         });
     }
     l = src.length;
+
     for(i=0; i<l; i++){
         srcChild = src[i];
         if(srcChild.oid in used){
