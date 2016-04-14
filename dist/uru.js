@@ -89,7 +89,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    if(classes.length){
 	        if(("class" in attrs) || ("classes" in attrs)){
-	            attrs['class'] = dom.classes(classes, attrs['class'], attrs["classes"]);
+	            attrs['class'] = dom.classes(classes, attrs['class'], attrs.classes);
 	            delete attrs.classes;
 	        }else{
 	            attrs['class'] = classes.join(" ");
@@ -119,10 +119,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	            children.push(item);
 	        }
 	    }
-
-	    tagName = parseTag(tagName, attrs);
-	    if(tagName in components){
-	        tagName = components[tagName];
+	    
+	    if(typeof tagName !== 'function'){
+	        tagName = parseTag(tagName, attrs);
+	        if(tagName in components){
+	            tagName = components[tagName];
+	        }
 	    }
 
 	    if(typeof tagName === 'function'){
@@ -173,14 +175,14 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function mount(node, element, before){
 	    "use strict";
-	    var frag = nodes.patch(node);
-	    if(before === true){
-	        element.parentNode.replaceChild(element, frag);
-	    }else if(before){
-	        element.insertBefore(frag, before);
-	    }else{
-	        element.appendChild(frag);
-	    }
+	    var frag = nodes.patch(node, null, element, before);
+	    // if(before === true){
+	    //     element.parentNode.replaceChild(element, frag);
+	    // }else if(before){
+	    //     element.insertBefore(frag, before);
+	    // }else{
+	    //     element.appendChild(frag);
+	    // }
 	    return node;
 	}
 
@@ -197,7 +199,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    nodes.render(function(){
 	        mount.apply(null, args);
 	    });
-	}
+	};
 
 	uru.unmount = function(){
 	    "use strict";
@@ -205,7 +207,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    nodes.render(function(){
 	        unmount.apply(null, args);
 	    });
-	}
+	};
 
 	function runUru(options){
 	    "use strict";
@@ -250,6 +252,47 @@ return /******/ (function(modules) { // webpackBootstrap
 	    };
 	};
 
+	uru.component("router", {
+	    routes: [
+
+	    ],
+	    __createHandler: function(self, value){
+	        "use strict";
+	        return function(params){
+	            self.set({component: value, params: params});
+	        };
+	    },
+	    initialize: function () {
+	        "use strict";
+	        var routes = {}, self = this, i, defined = this.routes, value;
+	        for(i=0; i<defined.length; i++){
+	            value = defined[i];
+	            routes[value] = this.__createHandler(this, value);
+	        }
+	        this.router = uru.router(routes);
+	        this.router.start();
+	    },
+	    onUnmount: function () {
+	        "use strict";
+	      this.router.stop();
+	    },
+	    onSwitch: function(ctx){
+	        "use strict";
+	    },
+	    render: function(ctx){
+	        "use strict";
+	        this.onSwitch(ctx);
+	        if(ctx.component){
+	            return uru(ctx.component, {params: ctx.params});
+	        }else{
+	            return this.notfound();
+	        }
+	    },
+	    notfound: function(){
+	        "use strict";
+	        return uru("h1", "Oops ! Not found !!!!");
+	    }
+	});
 
 	uru.redraw = nodes.redraw;
 
@@ -279,6 +322,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.resolve = routes.resolve;
 
 	uru.reverse = routes.reverse;
+
+
 
 	module.exports = uru;
 
@@ -438,6 +483,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return value;
 	}
 
+
 	var checkDomain = function (url) {
 	    "use strict";
 	    if (url.indexOf('//') === 0) {
@@ -446,11 +492,37 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return url.toLowerCase().replace(/([a-z])?:\/\//, '$1').split('/')[0];
 	};
 
+
 	var isExternalUrl = function (url) {
 	    "use strict";
 	    return ( ( url.indexOf(':') > -1 || url.indexOf('//') > -1 ) && checkDomain(location.href) !== checkDomain(url) );
 	};
 
+
+	function buildQuery(data) {
+	    "use strict";
+	    var pairs = [], key, value, i;
+	    for(key in data){
+	        if(data.hasOwnProperty(key)){
+	            value = data[key];
+	            value = isArray(value) ? value : [value];
+	            for(i=0; i<value.length; i++){
+	                pairs.push(encodeURIComponent(key) + "=" + encodeURIComponent(value[i]));
+	            }
+	        }
+	    }
+	    return pairs.join("&");
+	}
+
+
+	function pathname(){
+	    "use strict";
+	    var path = window.location.pathname;
+	    if(path.charAt(0) !== "/"){
+	        path = "/" + path ;
+	    }
+	    return path;
+	}
 
 
 	module.exports = {
@@ -467,7 +539,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    Class: Class,
 	    assign: assign,
 	    noop: noop,
-	    isExternalUrl: isExternalUrl
+	    isExternalUrl: isExternalUrl,
+	    buildQuery: buildQuery,
+	    pathname: pathname
 	};
 
 /***/ },
@@ -638,8 +712,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var tag = el.tagName, name;
 	    if(tag === 'BUTTON'){
 	        name = "click";
-	    }else if(tag === 'TEXTAREA' || (tag === 'INPUT' && el.type in {search:1, password:1, text:1})){
-	        name = "input";
+	    }else if((tag === 'TEXTAREA') || ((tag === 'INPUT') && (el.type in {search:1, password:1, text:1}))){
+	        name = "change";
 	    }else if(tag === 'SELECT'){
 	        name = "change";
 	    }else if(tag === 'INPUT'){
@@ -720,11 +794,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	        disabled:1,
 	        readonly:1
 	    };
+	    var events = [];
 	    for (key in values) {
 	        if (values.hasOwnProperty(key)) {
 	            value = values[key];
 	            if(key.substr(0, 2) === 'on'){
-	                domAddEvent(node, el, key.substr(2), value);
+	                events.push([key.substr(2), value]);
 	            }else if(key === 'classes' || key === 'class'){
 	                el.className = dom.classes(value);
 	            }else if(key === 'value' && el.tagName === 'TEXTAREA'){
@@ -747,6 +822,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	            }
 	        }
+	    }
+	    var i, event;
+	    for(i=0; i<events.length; i++){
+	        event = events[i];
+	        domAddEvent(node, el, event[0], event[1]);
 	    }
 	}
 
@@ -804,6 +884,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.index = arguments.length < 4 ? -1 : index;
 	    this.owner = null;
 	    this.events = {};
+	    this.oid = ++oid;
 	}
 
 
@@ -1110,7 +1191,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 
-	function patch(target, current){
+	function patch(target, current, rootElement, before){
 	    "use strict";
 	    var origin = {
 	        src: current,
@@ -1152,6 +1233,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	        }else{
 	            dst.patch(stack, src);
+	        }
+	    }
+
+	    if(rootElement){
+	        if(before === true){
+	            rootElement.parentNode.replaceChild(rootElement, origin.parent);
+	        }else if(before){
+	            rootElement.insertBefore(origin.parent, before);
+	        }else{
+	            rootElement.appendChild(origin.parent);
 	        }
 	    }
 
@@ -1217,7 +1308,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            srcChild = src[i];
 	        }
 	        if(srcChild){
-	            used[srcChild.index] = true;
+	            used[srcChild.oid] = true;
 	        }
 	        entries.push({
 	            owner: owner,
@@ -1229,7 +1320,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    l = src.length;
 	    for(i=0; i<l; i++){
 	        srcChild = src[i];
-	        if(srcChild.index in used){
+	        if(srcChild.oid in used){
 	            continue;
 	        }
 	        entries.push({
@@ -1601,7 +1692,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return pathname;
 	}
 
-	function handleRoute(){
+	function handleRoute(event){
 	    "use strict";
 	    var pathname = normalizePathName(window.location.pathname), href = window.location.href;
 	    if(href === previousRoute){
@@ -1610,6 +1701,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var result = matchRoute(pathname);
 	    if(result){
 	        firstRoute = false;
+	        if(event) {
+	            event.preventDefault();
+	            event.stopImmediatePropagation();
+	        }
 	        result.func(result.args);
 	    }else if(!firstRoute){
 	        firstRoute = false;
@@ -1752,6 +1847,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(linkMap.hasOwnProperty(name)){
 	            value = linkMap[name];
 	            ln = find(name);
+	            if(!ln){
+	                throw new Error("No related link found: " + name);
+	            }
 	            routes.push({link: ln, func: value});
 	        }
 	    }
@@ -1774,6 +1872,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
+	Router.prototype.contains = function (name) {
+	  "use strict";
+	    var routes = this.routes, i, ln, route, match;
+	    for(i=0; i< routes.length; i++){
+	        route = routes[i];
+	        ln = route.link;
+	        if(ln.name === name){
+	            return true;
+	        }
+	    }
+	    return false;
+	}
+
+
 	Router.prototype.match = function (path) {
 	  "use strict";
 	    var routes = this.routes, i, ln, route, match;
@@ -1786,6 +1898,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        match = ln.match(path);
 	        if(match){
 	            route.args = match;
+	            delete match.$lastIndex;
 	            return route;
 	        }
 	    }
@@ -1802,6 +1915,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	}
 
+
 	function mount(){
 	    "use strict";
 	    document.addEventListener('click', function(event){
@@ -1814,13 +1928,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }, false);
 	}
 
+
+	function isRouted(name){
+	    "use strict";
+	    var i, router;
+	    for(i=0;i<routerSet.length;i++){
+	        router = routerSet[i];
+	        if(router.contains(name)){
+	            return true;
+	        }
+	    }
+	    return false;
+	}
+
+
 	module.exports = {
 	    Router: Router,
 	    link: link,
 	    resolve: resolve,
 	    route: navigateRoute,
 	    reverse: reverse,
-	    mount: mount
+	    mount: mount,
+	    isRouted: isRouted
 	};
 
 /***/ },
