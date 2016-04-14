@@ -86,8 +86,8 @@ function domAddActionEventName(el){
     var tag = el.tagName, name;
     if(tag === 'BUTTON'){
         name = "click";
-    }else if(tag === 'TEXTAREA' || (tag === 'INPUT' && el.type in {search:1, password:1, text:1})){
-        name = "input";
+    }else if((tag === 'TEXTAREA') || ((tag === 'INPUT') && (el.type in {search:1, password:1, text:1}))){
+        name = "change";
     }else if(tag === 'SELECT'){
         name = "change";
     }else if(tag === 'INPUT'){
@@ -168,11 +168,12 @@ function domAttributes(node, el, values) {
         disabled:1,
         readonly:1
     };
+    var events = [];
     for (key in values) {
         if (values.hasOwnProperty(key)) {
             value = values[key];
             if(key.substr(0, 2) === 'on'){
-                domAddEvent(node, el, key.substr(2), value);
+                events.push([key.substr(2), value]);
             }else if(key === 'classes' || key === 'class'){
                 el.className = dom.classes(value);
             }else if(key === 'value' && el.tagName === 'TEXTAREA'){
@@ -195,6 +196,11 @@ function domAttributes(node, el, values) {
                 }
             }
         }
+    }
+    var i, event;
+    for(i=0; i<events.length; i++){
+        event = events[i];
+        domAddEvent(node, el, event[0], event[1]);
     }
 }
 
@@ -252,6 +258,7 @@ function DomNode(type, attrs, children, index){
     this.index = arguments.length < 4 ? -1 : index;
     this.owner = null;
     this.events = {};
+    this.oid = ++oid;
 }
 
 
@@ -558,7 +565,7 @@ ComponentNode.prototype = {
 };
 
 
-function patch(target, current){
+function patch(target, current, rootElement, before){
     "use strict";
     var origin = {
         src: current,
@@ -600,6 +607,16 @@ function patch(target, current){
             }
         }else{
             dst.patch(stack, src);
+        }
+    }
+
+    if(rootElement){
+        if(before === true){
+            rootElement.parentNode.replaceChild(rootElement, origin.parent);
+        }else if(before){
+            rootElement.insertBefore(origin.parent, before);
+        }else{
+            rootElement.appendChild(origin.parent);
         }
     }
 
@@ -665,7 +682,7 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
             srcChild = src[i];
         }
         if(srcChild){
-            used[srcChild.index] = true;
+            used[srcChild.oid] = true;
         }
         entries.push({
             owner: owner,
@@ -677,7 +694,7 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
     l = src.length;
     for(i=0; i<l; i++){
         srcChild = src[i];
-        if(srcChild.index in used){
+        if(srcChild.oid in used){
             continue;
         }
         entries.push({

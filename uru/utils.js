@@ -146,6 +146,7 @@ function take(object, key, defaultValue){
     return value;
 }
 
+
 var checkDomain = function (url) {
     "use strict";
     if (url.indexOf('//') === 0) {
@@ -154,11 +155,37 @@ var checkDomain = function (url) {
     return url.toLowerCase().replace(/([a-z])?:\/\//, '$1').split('/')[0];
 };
 
+
 var isExternalUrl = function (url) {
     "use strict";
     return ( ( url.indexOf(':') > -1 || url.indexOf('//') > -1 ) && checkDomain(location.href) !== checkDomain(url) );
 };
 
+
+function buildQuery(data) {
+    "use strict";
+    var pairs = [], key, value, i;
+    for(key in data){
+        if(data.hasOwnProperty(key)){
+            value = data[key];
+            value = isArray(value) ? value : [value];
+            for(i=0; i<value.length; i++){
+                pairs.push(encodeURIComponent(key) + "=" + encodeURIComponent(value[i]));
+            }
+        }
+    }
+    return pairs.join("&");
+}
+
+
+function pathname(){
+    "use strict";
+    var path = window.location.pathname;
+    if(path.charAt(0) !== "/"){
+        path = "/" + path ;
+    }
+    return path;
+}
 
 
 module.exports = {
@@ -175,5 +202,7 @@ module.exports = {
     Class: Class,
     assign: assign,
     noop: noop,
-    isExternalUrl: isExternalUrl
+    isExternalUrl: isExternalUrl,
+    buildQuery: buildQuery,
+    pathname: pathname
 };

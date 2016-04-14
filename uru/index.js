@@ -63,10 +63,12 @@ function uru(tagName){
             children.push(item);
         }
     }
-
-    tagName = parseTag(tagName, attrs);
-    if(tagName in components){
-        tagName = components[tagName];
+    
+    if(typeof tagName !== 'function'){
+        tagName = parseTag(tagName, attrs);
+        if(tagName in components){
+            tagName = components[tagName];
+        }
     }
 
     if(typeof tagName === 'function'){
@@ -117,14 +119,14 @@ uru.component = function registerComponent(name){
 
 function mount(node, element, before){
     "use strict";
-    var frag = nodes.patch(node);
-    if(before === true){
-        element.parentNode.replaceChild(element, frag);
-    }else if(before){
-        element.insertBefore(frag, before);
-    }else{
-        element.appendChild(frag);
-    }
+    var frag = nodes.patch(node, null, element, before);
+    // if(before === true){
+    //     element.parentNode.replaceChild(element, frag);
+    // }else if(before){
+    //     element.insertBefore(frag, before);
+    // }else{
+    //     element.appendChild(frag);
+    // }
     return node;
 }
 
@@ -198,14 +200,18 @@ uru.component("router", {
     routes: [
 
     ],
+    __createHandler: function(self, value){
+        "use strict";
+        return function(params){
+            self.set({component: value, params: params});
+        };
+    },
     initialize: function () {
         "use strict";
         var routes = {}, self = this, i, defined = this.routes, value;
         for(i=0; i<defined.length; i++){
             value = defined[i];
-            routes[value] = function(params){
-                self.set({component: value, params: params});
-            };//jshint ignore:line
+            routes[value] = this.__createHandler(this, value);
         }
         this.router = uru.router(routes);
         this.router.start();
@@ -260,6 +266,8 @@ uru.router = function(values){
 uru.resolve = routes.resolve;
 
 uru.reverse = routes.reverse;
+
+
 
 module.exports = uru;
 

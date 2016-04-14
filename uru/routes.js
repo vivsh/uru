@@ -25,7 +25,6 @@ function handleRoute(event){
         if(event) {
             event.preventDefault();
             event.stopImmediatePropagation();
-            console.log("Blocked propagation !!");
         }
         result.func(result.args);
     }else if(!firstRoute){
@@ -169,6 +168,9 @@ function Router(linkMap){
         if(linkMap.hasOwnProperty(name)){
             value = linkMap[name];
             ln = find(name);
+            if(!ln){
+                throw new Error("No related link found: " + name);
+            }
             routes.push({link: ln, func: value});
         }
     }
@@ -191,6 +193,20 @@ Router.prototype.start = function (silent) {
 }
 
 
+Router.prototype.contains = function (name) {
+  "use strict";
+    var routes = this.routes, i, ln, route, match;
+    for(i=0; i< routes.length; i++){
+        route = routes[i];
+        ln = route.link;
+        if(ln.name === name){
+            return true;
+        }
+    }
+    return false;
+}
+
+
 Router.prototype.match = function (path) {
   "use strict";
     var routes = this.routes, i, ln, route, match;
@@ -203,6 +219,7 @@ Router.prototype.match = function (path) {
         match = ln.match(path);
         if(match){
             route.args = match;
+            delete match.$lastIndex;
             return route;
         }
     }
@@ -219,6 +236,7 @@ Router.prototype.stop = function () {
     }
 }
 
+
 function mount(){
     "use strict";
     document.addEventListener('click', function(event){
@@ -231,11 +249,26 @@ function mount(){
     }, false);
 }
 
+
+function isRouted(name){
+    "use strict";
+    var i, router;
+    for(i=0;i<routerSet.length;i++){
+        router = routerSet[i];
+        if(router.contains(name)){
+            return true;
+        }
+    }
+    return false;
+}
+
+
 module.exports = {
     Router: Router,
     link: link,
     resolve: resolve,
     route: navigateRoute,
     reverse: reverse,
-    mount: mount
+    mount: mount,
+    isRouted: isRouted
 };
