@@ -166,7 +166,8 @@ function domAttributes(node, el, values) {
         checked:1,
         selected:1,
         disabled:1,
-        readonly:1
+        readonly:1,
+        innerHTML:1
     };
     var events = [];
     for (key in values) {

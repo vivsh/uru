@@ -39,15 +39,17 @@ Component.prototype.set = function(values, silent){
                     this.$dirty = true;
                     state[key] = value;
                 }else if (value !== initial) {
-                    this.$dirty = true;
                     state[key] = value;
                 }
             }
         }
     }
-    if(this.$dirty && !dirty && !silent){
+    if(this.$dirty && !silent){
         nodes.redraw();
     }
+    // if(this.$dirty && !dirty && !silent){
+    //     nodes.redraw();
+    // }
 };
 
 
