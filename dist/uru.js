@@ -59,8 +59,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var utils = __webpack_require__(1),
 	    Component = __webpack_require__(2),
 	    nodes = __webpack_require__(3),
-	    dom = __webpack_require__(4),
-	    routes = __webpack_require__(5);
+	    dom = __webpack_require__(4);
 
 
 	var components = {}, uruStarted = false;
@@ -112,11 +111,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(utils.isArray(item)){
 	            stack.unshift.apply(stack, item);
 	        }else if(item){
-	            i += 1;
 	            if(!(item instanceof nodes.DomNode) && !(item instanceof nodes.ComponentNode)){
 	                item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
 	            }
 	            children.push(item);
+	            item.index = i;
+	            i += 1;
 	        }
 	    }
 	    
@@ -168,6 +168,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    components[name] = constructor;
 
 	    constructor.prototype.$name = name;
+	    constructor.prototype.name = name;
 
 	    return constructor;
 	};
@@ -252,48 +253,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    };
 	};
 
-	uru.component("router", {
-	    routes: [
-
-	    ],
-	    __createHandler: function(self, value){
-	        "use strict";
-	        return function(params){
-	            self.set({component: value, params: params});
-	        };
-	    },
-	    initialize: function () {
-	        "use strict";
-	        var routes = {}, self = this, i, defined = this.routes, value;
-	        for(i=0; i<defined.length; i++){
-	            value = defined[i];
-	            routes[value] = this.__createHandler(this, value);
-	        }
-	        this.router = uru.router(routes);
-	        this.router.start();
-	    },
-	    onUnmount: function () {
-	        "use strict";
-	      this.router.stop();
-	    },
-	    onSwitch: function(ctx){
-	        "use strict";
-	    },
-	    render: function(ctx){
-	        "use strict";
-	        this.onSwitch(ctx);
-	        if(ctx.component){
-	            return uru(ctx.component, {params: ctx.params});
-	        }else{
-	            return this.notfound();
-	        }
-	    },
-	    notfound: function(){
-	        "use strict";
-	        return uru("h1", "Oops ! Not found !!!!");
-	    }
-	});
-
 	uru.redraw = nodes.redraw;
 
 	uru.queue = nodes.Queue;
@@ -305,24 +264,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.utils = utils;
 
 	uru.Component = Component;
-
-	uru.hook = nodes.hook;
-
-	uru.classes = dom.classes;
-
-	uru.route = routes.route;
-
-	uru.link = routes.link;
-
-	uru.router = function(values){
-	    "use strict";
-	    return new routes.Router(values);
-	};
-
-	uru.resolve = routes.resolve;
-
-	uru.reverse = routes.reverse;
-
 
 
 	module.exports = uru;
@@ -550,69 +491,191 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	
 
-	var utils = __webpack_require__(1), nodes = __webpack_require__(3);
+	var utils = __webpack_require__(1),
+	    nodes = __webpack_require__(3);
 
 
 	function Component(attrs){
 	    "use strict";
-	    this.context = utils.merge({}, this.context, attrs);
+	    attrs = utils.merge({}, this.context, attrs);
+	    this.$events = {};
+	    this.context = {}
 	    this.$dirty = true;
+	    this.set(attrs, true);
 	    if (this.initialize) {
 	        this.initialize.apply(this, arguments);
 	    }
-	    // this.$cleaners = [];
 	    this.$dirty = false;
 	}
 
 
-	// Component.prototype.cleanup = function(callback){
-	//     "use strict";
-	//     this.$cleaners.push(callback);
-	// }
-
-
-	Component.prototype.render = function(state, content){
-	    "use strict";
-	    throw new Error("Not implemented");
-	};
-
-
-	Component.prototype.set = function(values, silent){
-	    "use strict";
-	    var key, value, initial, state = this.context, dirty = this.$dirty;
-	    if(values) {
-	        for (key in values) {
-	            if (values.hasOwnProperty(key)) {
-	                value = values[key];
-	                initial = state[key];
-	                if(typeof value === 'object'){
-	                    this.$dirty = true;
-	                    state[key] = value;
-	                }else if (value !== initial) {
-	                    this.$dirty = true;
-	                    state[key] = value;
+	Component.prototype = {
+	    constructor: Component,
+	    render: function(ctx, content){
+	        "use strict";
+	        throw new Error("Not implemented");
+	    },
+	    hasChanged: function(){
+	        "use strict";
+	        if (this.getContext){
+	            var changes = this.getContext(this.context);
+	            if(changes){
+	                this.set(changes, true);
+	            }
+	            return this.$dirty;
+	        }
+	        return true;
+	    },
+	    set: function(values, silent){
+	        "use strict";
+	        var key, value, initial, state = this.context, dirty = this.$dirty,
+	            events = this.$events, eventName, changes = {};
+	        if(values) {
+	            for (key in values) {
+	                if (values.hasOwnProperty(key)) {
+	                    value = values[key];
+	                    initial = state[key];
+	                    if(key.substr(0, 2) === 'on'){
+	                        eventName = key.substr(2);
+	                        if(eventName in events){
+	                            this.off(eventName, value);
+	                            delete events[eventName];
+	                        }
+	                        if(value){
+	                            this.on(eventName, value);
+	                            events[eventName] = value;
+	                        }
+	                    }
+	                    else if(typeof value === 'object'){
+	                        this.$dirty = true;
+	                        state[key] = value;
+	                    }else if (value !== initial) {
+	                        state[key] = value;
+	                        changes[key] = {current: value, previous: initial};
+	                    }
 	                }
 	            }
 	        }
-	    }
-	    if(this.$dirty && !dirty && !silent){
-	        nodes.redraw();
-	    }
-	};
-
-
-	Component.prototype.hasChanged = function(){
-	    "use strict";
-	    if (this.getContext){
-	        var changes = this.getContext(this.context);
-	        if(changes){
-	            this.set(changes, true);
+	        if(this.$dirty && !silent){
+	            nodes.redraw();
 	        }
-	        return this.$dirty;
+	        // if(this.$dirty && !dirty && !silent){
+	        //     nodes.redraw();
+	        // }
+	    },
+	    on: function(name, callback){
+	        "use strict";
+	        var callbacks = this.$handlers;
+	        if(!callbacks){
+	            callbacks = this.$handlers = {};
+	        }
+	        if(!(name in callbacks)){
+	            callbacks[name] = [];
+	        }
+	        callbacks[name].push(callback);
+	        return this;
+	    },
+	    off: function(name, callback){
+	        "use strict";
+	        var argc = arguments.length, listeners = this.$handlers;
+	        if(!listeners || (name && !(name in listeners))){
+	            return;
+	        }
+	        if(argc === 0){
+	            this.$handlers = {};
+	        }else if(argc === 1){
+	            delete listeners[name];
+	        }else{
+	            utils.remove(listeners[name], callback);
+	        }
+	        return this;
+	    },
+	    trigger: function(name, data, propagate){
+	        "use strict";
+	        var event = {type: name, data: data, target: this}, component = this;
+	        while(component && component.$callHandlers){
+	            component.$callHandlers(event);
+	            component = component.$owner;
+	        }
+	        return this;
+	    },
+	    listenTo: function(obj, name, callback){
+	        "use strict";
+	        var listeners = this.$monitors, self = this;
+	        if(utils.isString(callback)){
+	            callback = this[callback];
+	        }
+	        function callbackWrapper(){
+	            return callback.apply(self, arguments);
+	        }
+	        callbackWrapper.originalFunc = callback;
+	        if(!listeners){
+	            listeners = this.$monitors = [];
+	        }
+	        obj.on(name, callbackWrapper);
+	        listeners.push([obj, name, callbackWrapper]);
+	        return this;
+	    },
+	    stopListening: function(){
+	        "use strict";
+	        var listeners = this.$monitors, i = 0, item;
+	        if(listeners){
+	            for(i=0; i< listeners.length; i++){
+	                item = listeners[i];
+	                item[0].off(item[1], item[2]);
+	            }
+	            delete this.$monitors;
+	        }
+	        return this;
+	    },
+	    $callHandlers: function(event){
+	        "use strict";
+	        var listeners = this.$handlers, name = event.type;
+	        if(listeners && (name in listeners)){
+	            var i, items = listeners[name];
+	            for(i=0;i<items.length;i++){
+	                listeners.call(this.$owner, event);
+	            }
+	        }
+	    },
+	    $render: function(content){
+	        "use strict";
+	        var tree;
+	        try{
+	            if(!this.$tree || this.hasChanged()){
+	                tree = this.render(this.context);
+	            }
+	        }catch (e){
+	            this.trigger("error", e);
+	            throw e;
+	        }
+	        return tree;
+	    },
+	    $mounted: function () {
+	        "use strict";
+	        if(this.onMount){
+	            this.onMount();
+	        }
+	        this.trigger("mount");
+	    },
+	    $unmounted: function(){
+	        "use strict";
+	        if(this.onUnmount){
+	            this.onUnmount();
+	        }
+	        this.trigger("unmount");
+	    },
+	    $destroyed: function () {
+	        "use strict";
+	        this.off();
+	        this.stopListening();
+	        this.$events = {};
+	        if(this.onDestroy){
+	            this.onDestroy();
+	        }
+	        this.trigger("destroy");
 	    }
-	    return true;
-	};
-
+	}
 
 
 	Component.extend = utils.extend;
@@ -625,7 +688,9 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ function(module, exports, __webpack_require__) {
 
 	
-	var utils = __webpack_require__(1), dom = __webpack_require__(4);
+	var utils = __webpack_require__(1),
+	    dom = __webpack_require__(4),
+	    actions = __webpack_require__(5);
 
 	var nextTick;
 
@@ -643,236 +708,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var CLEAN = 1, DELETE = 2;
 
-	var rootComponent, domHooks = {};
+	var rootComponent;
 
 	var updateId = new Date().getTime(), oid = 87;
-
-
-	function applyHook(hook, event, el, callback){
-	    "use strict";
-	    var hookName;
-	    if(hook && el.nodeType === 1 && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
-	        var handler = domHooks[hookName];
-	        if(handler[event]){
-	            try{
-	                handler[event](hook, el, callback);
-	            }catch(e){
-	                callback();
-	            }
-	            return;
-	        }
-	    }
-	    callback();
-	}
-
-
-	function domNamespace(tag, parent) {
-	    "use strict";
-	    if (tag === 'svg') {
-	        return 'http://www.w3.org/2000/svg';
-	    }
-	    return parent ? parent.namespaceURI : null;
-	}
-
-
-	function domCreate(node, tagName, attrs, parent) {
-	    "use strict";
-	    var ns = domNamespace(tagName, parent), element;
-	    if(ns){
-	        element = document.createElementNS(ns, tagName);
-	    }else{
-	        element = document.createElement(tagName);
-	    }
-	    if(attrs){
-	        domAttributes(node, element, attrs);
-	    }
-	    return element;
-	}
-
-
-	function domStyle(el, style) {
-	    "use strict";
-	    var key, rules;
-	    if (typeof style === 'string') {
-	        el.style.cssText = style;
-	    } else {
-	        el.style.cssText = '';
-	        rules = el.style;
-	        for (key in style) {
-	            if (style.hasOwnProperty(key)) {
-	                rules[key] = style[key];
-	            }
-	        }
-	    }
-	}
-
-
-	function domAddActionEventName(el){
-	    "use strict";
-	    var tag = el.tagName, name;
-	    if(tag === 'BUTTON'){
-	        name = "click";
-	    }else if((tag === 'TEXTAREA') || ((tag === 'INPUT') && (el.type in {search:1, password:1, text:1}))){
-	        name = "change";
-	    }else if(tag === 'SELECT'){
-	        name = "change";
-	    }else if(tag === 'INPUT'){
-	        name = "change";
-	    }else{
-	        name = "click";
-	    }
-	    return name;
-	}
-
-
-	function domData(el) {
-	    "use strict";
-	    var key = "__uruData";
-	    var data = el[key]  || (el[key] = {events: {}});
-	    return data;
-	}
-
-
-	function domAddEvent(node, el, eventName, callback) {
-	    "use strict";
-	    var events = domData(el).events, name = eventName;
-	    if(name === 'action'){
-	        name = domAddActionEventName(el);
-	    }
-	    if(eventName in events){
-	        domRemoveEvent(node, el, eventName);
-	    }
-	    if(callback){
-	        var func = function (event) {
-	            event = dom.normalizeEvent(event);
-	            callback.call(node.owner, event);
-	            if(eventName === 'action'){
-	                redraw();
-	            }
-	        };
-	        events[eventName] = func;
-	        el.addEventListener(name, func, false);
-	    }
-	}
-
-	function domRemoveEvent(node, el, eventName) {
-	    "use strict";
-	    var events = domData(el).events, func, name = eventName;
-	    if(arguments.length < 3){
-	        for(name in events){
-	            if(events.hasOwnProperty(name)){
-	                domRemoveEvent(node, el, name);
-	            }
-	        }
-	    }else{
-	        func = events[eventName];
-	        if(name === 'action'){
-	            name = domAddActionEventName(el);
-	        }
-	        el.removeEventListener(name, func);
-	        delete events[eventName];
-	    }
-	}
-
-	function domDisplay(el, value){
-	    "use strict";
-	    var eventName = value ? "show" : "hide";
-	    applyHook(el.hook, eventName, el, function(){
-	        el.style.display = value ? "" : "none";
-	    });
-	}
-
-
-	function domAttributes(node, el, values) {
-	    "use strict";
-	    var key, value, type;
-	    var properties = {
-	        hook: 1,
-	        className: 1,
-	        checked:1,
-	        selected:1,
-	        disabled:1,
-	        readonly:1
-	    };
-	    var events = [];
-	    for (key in values) {
-	        if (values.hasOwnProperty(key)) {
-	            value = values[key];
-	            if(key.substr(0, 2) === 'on'){
-	                events.push([key.substr(2), value]);
-	            }else if(key === 'classes' || key === 'class'){
-	                el.className = dom.classes(value);
-	            }else if(key === 'value' && el.tagName === 'TEXTAREA'){
-	                el.value = value;
-	            }else if(key === "show"){
-	                domDisplay(el, value);
-	            }else if (value === null || value === undefined) {
-	                el.removeAttribute(key);
-	            } else {
-	                type = typeof value;
-	                if (key === "style") {
-	                    domStyle(el, value);
-	                } else if (key in properties || type === 'function' || type === 'object') {
-	                    el[key] = value;
-	                } else {
-	                    if(type === 'boolean'){
-	                        el[key] = value;
-	                    }
-	                    el.setAttribute(key, value);
-	                }
-	            }
-	        }
-	    }
-	    var i, event;
-	    for(i=0; i<events.length; i++){
-	        event = events[i];
-	        domAddEvent(node, el, event[0], event[1]);
-	    }
-	}
-
-
-	function domAdopt(parent, el, before, replace){
-	    "use strict";
-	    if(typeof before==='number' && (before%1)===0){
-	        before = parent.childNodes[before];
-	    }
-	    if(before){
-	        if(replace){
-	            applyHook(parent.hook, "enter", el, function(){
-	                parent.replaceChild(el, before);
-	            });
-	        }else{
-	            applyHook(parent.hook, "enter", el, function(){
-	                parent.insertBefore(el, before);
-	            });
-	        }
-	    }else{
-	        applyHook(parent.hook, "enter", el, function(){
-	            parent.appendChild(el);
-	        });
-	    }
-	}
-
-
-	function domRemove(el){
-	    "use strict";
-	    var parent = el.parentNode;
-	    applyHook(parent.hook, "leave", el, function(){
-	        parent.removeChild(el);
-	    });
-	}
-
-
-	function domReorder(el, index){
-	    "use strict";
-	    var parent = el.parentNode;
-	    applyHook(parent.hook, "enter", el, function(){
-	        var before = parent.childNodes[index];
-	        if(before !== el){
-	            parent.insertBefore(el, before);
-	        }
-	    });
-	}
 
 
 	function DomNode(type, attrs, children, index){
@@ -890,18 +728,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	DomNode.prototype = {
 	    constructor: DomNode,
-	    addEventListener: function(name, callback){
-	        "use strict";
-
-	    },
-	    removeEventListener: function(){
-	        "use strict";
-
-	    },
-	    setAttributes: function(){
-	        "use strict";
-
-	    },
 	    create: function(stack, parent, owner){
 	        "use strict";
 	        var src = this.tenant, before, replace;
@@ -916,14 +742,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(isText){
 	            el = document.createTextNode(this.children);
 	        }else{
-	            el = domCreate(this, this.type, this.attrs, parent);
+	            el = actions.create(this, parent);
 
 	        }
 
-	        domAdopt(parent, el, before, replace);
-
 	        this.el = el;
 	        this.owner = owner;
+	        
+	        actions.adopt(this, parent, before, replace);
+
 	        delete this.tenant;
 
 	        if(src && this.index !== src.index){
@@ -954,9 +781,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            pushChildNodes(stack, this.el, this.owner, this.children, 'src', CLEAN);
 	        }
 	        if(!nodelete && el.parentNode){
-	            domRemove(el);
+	            actions.remove(this);
 	        }
-	        domRemoveEvent(this, el);
+	        actions.clean(this);
 	        this.owner.$updated = true;
 	        this.el = null;
 	        this.owner = null;
@@ -965,22 +792,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	        "use strict";
 	        var el = src.el, isText = this.type === TEXT_TYPE, owner = src.owner;
 
+	        this.el = el;
+	        this.owner = owner;
+
 	        if(isText){
 	            if(src.children !== this.children){
 	                el.nodeValue = this.children;
 	                owner.$updated = true;
 	            }
 	        }else{
-	            var diff = utils.diffAttr(src.attrs, this.attrs), changes, show;
+	            var diff = utils.diffAttr(src.attrs, this.attrs), changes;
 	            if(diff){
 	                changes = diff.changes;
-	                domAttributes(this, el, changes, owner);
+	                actions.attr(this, changes);
 	                owner.$updated = true;
 	            }
 	        }
-
-	        this.el = el;
-	        this.owner = owner;
 
 	        if(this.index !== src.index){
 	            this.reorder(src);
@@ -996,7 +823,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(src.index < index){
 	            index++;
 	        }
-	        domReorder(this.el, index);
+	        actions.reorder(this, index);
 	    }
 	};
 
@@ -1191,6 +1018,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 
+	function patchComponentNode(componentNode) {
+	    var component;
+	    try{
+	        patch(null, componentNode);
+	    }catch(e){
+	        component.emit("error", e);
+	    }
+	}
+
+
 	function patch(target, current, rootElement, before){
 	    "use strict";
 	    var origin = {
@@ -1215,10 +1052,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(!dst){
 	            if(src.component){
 	                deletes.push(src.component);
-	                // destroyComponent(src.component)
-	                if(src.component.onUnmount){
-	                    src.component.onUnmount();
-	                }
+	                src.component.$unmounted();
 	            }
 	            src.destroy(stack, item.action === CLEAN);
 	        }else if(!src){
@@ -1248,16 +1082,12 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    for(i=mounts.length-1; i>=0; i--){
 	        child = mounts[i];
-	        if(child.onMount){
-	            child.onMount();
-	        }
+	        child.$mounted();
 	    }
 
 	    for(i=deletes.length-1; i>=0; i--){
 	        child = deletes[i];
-	        if(child.onDelete){
-	            child.onDelete();
-	        }
+	        child.$destroyed();
 	    }
 
 	    return origin.parent;
@@ -1318,6 +1148,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        });
 	    }
 	    l = src.length;
+
 	    for(i=0; i<l; i++){
 	        srcChild = src[i];
 	        if(srcChild.oid in used){
@@ -1348,13 +1179,11 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function setHook(name, handler){
 	    "use strict";
-	    domHooks[name] = handler;
 	}
 
 
 	function getHook(name){
 	    "use strict";
-	    return domHooks[name];
 	}
 
 	function hook(name, handler){
@@ -1654,6 +1483,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return el.value;
 	}
 
+	function equalTagName(node1, tagName){
+	    "use strict";
+	    return node1.tagName === tagName;
+	}
+
+	function closestNode(element, ancestor) {
+	    "use strict";
+	    var target = element, compare = typeof ancestor === 'function' ? ancestor : equalTagName;
+	    while(!compare(target, ancestor) && target.parentNode){
+	        target = target.parentNode;
+	    }
+	    return target;
+	}
+
+
 	module.exports = {
 	    normalizeEvent: normalizeEvent,
 	    removeEventListeners: removeEventListeners,
@@ -1668,7 +1512,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    ready: ready,
 	    data: data,
 	    getValue: getValue,
-	    setValue: setValue
+	    setValue: setValue,
+	    closest: closestNode
 	};
 
 
@@ -1677,528 +1522,267 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 5 */
 /***/ function(module, exports, __webpack_require__) {
 
-	
-
-	var pattern = __webpack_require__(6), utils = __webpack_require__(1), dom = __webpack_require__(4);
-
-	var routerSet = [], monitorRoutes = false, initialRoutePopped = false, firstRoute = true, links = [], previousRoute;
+	var utils = __webpack_require__(1), dom = __webpack_require__(4);
 
 
-	function normalizePathName(pathname){
+	var domHooks = {};
+
+
+	var DOM_PROPERTIES = ['innerText', 'innerHTML', 'value', 'checked', 'selected', 'selectedIndex',
+	        'disabled', 'readonly', 'className', 'style'];
+	var DOM_PROPERTY_SET = {};
+
+	(function(){
 	    "use strict";
-	    if(pathname.charAt(0) === '/'){
-	        pathname = pathname.substr(1);
+	    for(var i=0; i<DOM_PROPERTIES.length; i++){
+	        DOM_PROPERTY_SET[DOM_PROPERTIES[i]] = true;
 	    }
-	    return pathname;
-	}
+	})();
 
-	function handleRoute(event){
-	    "use strict";
-	    var pathname = normalizePathName(window.location.pathname), href = window.location.href;
-	    if(href === previousRoute){
-	        return;
-	    }
-	    var result = matchRoute(pathname);
-	    if(result){
-	        firstRoute = false;
-	        if(event) {
-	            event.preventDefault();
-	            event.stopImmediatePropagation();
-	        }
-	        result.func(result.args);
-	    }else if(!firstRoute){
-	        firstRoute = false;
-	        window.location.reload();
-	    }
-	    previousRoute = href;
-	}
 
-	function bindRoute(){
+	function applyHook(hook, event, el, callback){
 	    "use strict";
-	    if(!initialRoutePopped) {
-	        (function () {
-	            // There's nothing to do for older browsers ;)
-	            if (!window.addEventListener) {
-	                return;
+	    var hookName;
+	    if(hook && el.nodeType === 1 && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
+	        var handler = domHooks[hookName];
+	        if(handler[event]){
+	            try{
+	                handler[event](hook, el, callback);
+	            }catch(e){
+	                callback();
 	            }
-	            var blockPopstateEvent = document.readyState !== "complete";
-	            window.addEventListener("load", function () {
-	                // The timeout ensures that popstate-events will be unblocked right
-	                // after the load event occured, but not in the same event-loop cycle.
-	                setTimeout(function () {
-	                    blockPopstateEvent = false;
-	                }, 0);
-	            }, false);
-	            window.addEventListener("popstate", function (evt) {
-	                if (blockPopstateEvent && document.readyState === "complete") {
-	                    evt.preventDefault();
-	                    evt.stopImmediatePropagation();
-	                }
-	            }, false);
-	        })();
-	        // setTimeout(handleRoute);
-
-	        previousRoute = window.location.href;
-	    }
-	    initialRoutePopped = true;
-	    window.addEventListener("popstate", handleRoute);
-	}
-
-
-	function unbindRoute(){
-	    "use strict";
-	    window.removeEventListener("popstate", handleRoute);
-	}
-
-
-	function navigateRoute(url, options){
-	    "use strict";
-	    options = options || {};
-	    var history = window.history, func = options && options.replace ? "replaceState" : "pushState";
-	    history[func](null, options.title || "", url);
-	    if(!options.silent){
-	        handleRoute();
-	    }
-	}
-
-
-	function matchRoute(path){
-	    "use strict";
-	    var i, router, link, result;
-	    for(i=0; i< routerSet.length; i++){
-	        router = routerSet[i];
-	        result = router.match(path);
-	        if(result){
-	            return result;
+	            return;
 	        }
 	    }
-	    return false;
+	    callback();
 	}
 
-	function link(){
+
+	function domNamespace(tag, parent) {
 	    "use strict";
-	    var args = Array.prototype.slice.call(arguments), stack = args, item;
-	    if(args.length === 0){
-	        return links.slice(0);
+	    if (tag === 'svg') {
+	        return 'http://www.w3.org/2000/svg';
 	    }
-	    if(args.length === 1 && utils.isString(args[0])){
-	        return find(args[0]);
+	    return parent ? parent.namespaceURI : null;
+	}
+
+
+	function domCreate(node, parent) {
+	    "use strict";
+	    var tagName = node.type, attrs = node.attrs;
+	    var ns = domNamespace(tagName, parent), element;
+	    if(ns){
+	        element = document.createElementNS(ns, tagName);
+	    }else{
+	        element = document.createElement(tagName);
 	    }
-	    while(stack.length){
-	        item = stack.pop();
-	        if(utils.isArray(item)){
-	            stack.push.apply(stack, item);
-	        }else{
-	            item = utils.assign({}, item);
-	            if(!item.pattern || !item.name){
-	                throw new Error("No pattern or name defined for the link");
+	    node.el = element;
+	    if(attrs){
+	        domAttributes(node, attrs);
+	    }
+	    return element;
+	}
+
+
+	function domStyle(el, style) {
+	    "use strict";
+	    var key, rules;
+	    if(!style){
+	        el.style = "";
+	    }else if (typeof style === 'string') {
+	        el.style.cssText = style;
+	    } else {
+	        el.style.cssText = '';
+	        rules = el.style;
+	        for (key in style) {
+	            if (style.hasOwnProperty(key)) {
+	                rules[key] = style[key];
 	            }
-	            item.match = pattern.parse(item.pattern, true);
-	            item.reverse = item.match.reverse;
-	            links.push(item);
 	        }
 	    }
 	}
 
-	function find(name){
-	    "use strict";
-	    var i;
-	    for(i=0; i<links.length; i++){
-	        if(links[i].name === name){
-	            return links[i];
-	        }
-	    }
-	}
 
-	function resolve(url){
+	function domAddActionEventName(el){
 	    "use strict";
-	    var i, match;
-	    if(url.charAt(0) === '/'){
-	        url = url.substr(1);
+	    var tag = el.tagName, name;
+	    if(tag === 'BUTTON'){
+	        name = "click";
+	    }else if((tag === 'TEXTAREA') || ((tag === 'INPUT') && (el.type in {search:1, password:1, text:1}))){
+	        name = "change";
+	    }else if(tag === 'SELECT'){
+	        name = "change";
+	    }else if(tag === 'INPUT'){
+	        name = "change";
+	    }else{
+	        name = "click";
 	    }
-	    for(i=0; i<links.length; i++){
-	        match = links[i].match(url);
-	        if(match){
-	            links[i].params = match;
-	            return links[i];
-	        }
-	    }
-	    return false;
+	    return name;
 	}
 
 
-	function reverse(name, args){
+	function domData(el) {
 	    "use strict";
-	    var ln = find(name), path;
-	    if(ln){
-	        path = ln.reverse(args);
-	        if(path){
-	            return "/" + path;
-	        }
-	    }
-	    return false;
+	    var key = "__uruData";
+	    var data = el[key]  || (el[key] = {events: {}});
+	    return data;
 	}
 
 
-	function Router(linkMap){
+	function domAddEvent(node, el, eventName, callback) {
 	    "use strict";
-	    var routes = this.routes = [], i, name, ln, value;
-	    for(name in linkMap){
-	        if(linkMap.hasOwnProperty(name)){
-	            value = linkMap[name];
-	            ln = find(name);
-	            if(!ln){
-	                throw new Error("No related link found: " + name);
+	    var events = domData(el).events, name = eventName;
+	    if(name === 'action'){
+	        name = domAddActionEventName(el);
+	    }
+	    if(eventName in events){
+	        domRemoveEvent(node, el, eventName);
+	    }
+	    if(callback){
+	        var func = function (event) {
+	            event = dom.normalizeEvent(event);
+	            callback.call(node.owner, event);
+	            if(eventName === 'action'){
+	                redraw();
 	            }
-	            routes.push({link: ln, func: value});
-	        }
+	        };
+	        events[eventName] = func;
+	        el.addEventListener(name, func, false);
 	    }
 	}
 
-
-	Router.prototype.start = function (silent) {
-	  "use strict";
-	    routerSet.push(this);
-	    if(routerSet.length && !monitorRoutes){
-	        bindRoute();
-	        monitorRoutes = true;
-	    }
-	    if(!silent){
-	        var result = this.match(window.location.pathname);
-	        if(result){
-	            result.func(result.args);
-	        }
-	    }
-	}
-
-
-	Router.prototype.contains = function (name) {
-	  "use strict";
-	    var routes = this.routes, i, ln, route, match;
-	    for(i=0; i< routes.length; i++){
-	        route = routes[i];
-	        ln = route.link;
-	        if(ln.name === name){
-	            return true;
-	        }
-	    }
-	    return false;
-	}
-
-
-	Router.prototype.match = function (path) {
-	  "use strict";
-	    var routes = this.routes, i, ln, route, match;
-	    if(path.charAt(0) === '/'){
-	        path = path.substr(1);
-	    }
-	    for(i=0; i< routes.length; i++){
-	        route = routes[i];
-	        ln = route.link;
-	        match = ln.match(path);
-	        if(match){
-	            route.args = match;
-	            delete match.$lastIndex;
-	            return route;
-	        }
-	    }
-	    return false;
-	}
-
-
-	Router.prototype.stop = function () {
-	  "use strict";
-	    utils.remove(routerSet, this);
-	    if(!routerSet.length && monitorRoutes){
-	        unbindRoute();
-	        monitorRoutes = false;
-	    }
-	}
-
-
-	function mount(){
+	function domRemoveEvent(node, eventName) {
 	    "use strict";
-	    document.addEventListener('click', function(event){
-	        event = dom.normalizeEvent(event);
-	        var target = event.target;
-	        if(target.tagName === 'A' && target.href && !utils.isExternalUrl(target.href)){
-	            navigateRoute(target.pathname);
-	            event.preventDefault();
-	        }
-	    }, false);
-	}
-
-
-	function isRouted(name){
-	    "use strict";
-	    var i, router;
-	    for(i=0;i<routerSet.length;i++){
-	        router = routerSet[i];
-	        if(router.contains(name)){
-	            return true;
-	        }
-	    }
-	    return false;
-	}
-
-
-	module.exports = {
-	    Router: Router,
-	    link: link,
-	    resolve: resolve,
-	    route: navigateRoute,
-	    reverse: reverse,
-	    mount: mount,
-	    isRouted: isRouted
-	};
-
-/***/ },
-/* 6 */
-/***/ function(module, exports) {
-
-	
-
-	var RX_SEGMENT = /^(\w*)(\?)?:(.+?)(?:\s*\{\s*(\d*)\s*(?:,\s*(\d*))?\s*\})?$/;
-
-
-	var types = {
-	    alpha: {
-	        match: function(value){
-	            "use strict";
-	            return "alpha" === value;
-	        },
-	        pattern: function(value){
-	            "use strict";
-	            return "[a-zA-Z]+";
-	        }
-	    },
-	    alnum: {
-	        match: function(value){
-	            "use strict";
-	            return "alnum" === value;
-	        },
-	        pattern: function(value){
-	            "use strict";
-	            return "\\w+";
-	        }
-	    },
-	    int: {
-	        match: function(value){
-	            "use strict";
-	            return value in {'num': 1, 'int': 1};
-	        },
-	        pattern: function(value){
-	            "use strict";
-	            return "\\d+";
-	        },
-	        coerce: function(value){
-	            "use strict";
-	            return parseInt(value);
-	        }
-	    },
-	    any: {
-	        match: function(value){
-	            "use strict";
-	            return value === 'any';
-	        },
-	        pattern: function(value){
-	            "use strict";
-	            return '[^/]*';
-	        }
-	    },
-	    greedyAny: {
-	        match: function(value){
-	            "use strict";
-	            return value === '*';
-	        },
-	        pattern: function(value){
-	            "use strict";
-	            return '.*';
-	        }
-	    },
-	    choice: {
-	        match: function (value) {
-	            "use strict";
-	            return value.charAt(0) === '(' && value.charAt(value.length-1) === ')';
-	        },
-	        pattern: function(value){
-	            "use strict";
-	            var parts = value.substring(1, value.length-1).split(",");
-	            return parts.join("|");
-	        }
-	    },
-	    name: {
-	        match: function (value) {
-	            "use strict";
-	            return value === 'name';
-	        },
-	        pattern: function(){
-	            "use strict";
-	            return '[a-zA-Z]\\w+';
-	        }
-	    }
-	};
-
-
-	function register(name, options){
-	    "use strict";
-	    types[name] = options;
-	}
-
-
-	function select(str) {
-	    "use strict";
-	    var key, value;
-	    for(key in types){
-	        if(types.hasOwnProperty(key) && (value = types[key]) && value.match(str)){
-	            return {pattern: value.pattern(str), coerce: value.coerce};
-	        }
-	    }
-	    return {pattern: str};
-	}
-
-
-	function regex(value, terminate, names, converters, segments){
-	    "use strict";
-	    var size = value.length, endSlash = "", slash;
-
-	    names = names || [];
-
-	    converters = converters || [];
-
-	    segments = segments || [];
-
-	    if(value.charAt(size-1) === '/'){
-	        endSlash = "/";
-	        value = value.substring(0, size-1);
-	    }
-
-	    var parts = value.split("/"), limit = parts.length, result = [], i, p, match, name, pattern,
-	        optional, high, low, range, count = 0, obj, tail = terminate ? "$" : "";
-
-	    for(i=0; i< limit; i++){
-	        p = parts[i];
-	        slash = i===limit-1 ? "" : "/";
-	        match = RX_SEGMENT.exec(p);
-	        if(match){
-	            name = match[1];
-	            optional = !!match[2] || match[3] === '*';
-	            obj = select(match[3]);
-	            pattern = obj.pattern;
-	            high = parseInt(match[4]);
-	            low = parseInt(match[5]);
-	            if(isNaN(high) && isNaN(low)){
-	                range = "";
-	            }else{
-	                range = "{" + low||"" + "," + high||"" + "}";
+	    var el=node.el, events = domData(el).events, func, name = eventName;
+	    if(arguments.length < 3){
+	        for(name in events){
+	            if(events.hasOwnProperty(name)){
+	                domRemoveEvent(node, el, name);
 	            }
-	            pattern = "(" + pattern + ")" + range;
-	            segments.push({name: name, index: count, regex: new RegExp(pattern), optional: optional});
-	            pattern = pattern + slash;
-	            if(optional){
-	                pattern = "(?:" + pattern + ")?";
-	            }
-	            result.push(pattern);
-	            names.push(name);
-	            converters.push(obj.coerce);
-	            count += 1;
-	        }else {
-	            result.push(p + slash);
-	            segments.push(p);
 	        }
+	    }else{
+	        func = events[eventName];
+	        if(name === 'action'){
+	            name = domAddActionEventName(el);
+	        }
+	        el.removeEventListener(name, func);
+	        delete events[eventName];
 	    }
+	}
 
-	    if(endSlash){
-	        segments.push("");
-	    }
-
-	    return new RegExp("^" + result.join("") + endSlash + tail);
+	function domDisplay(el, value){
+	    "use strict";
+	    var eventName = value ? "show" : "hide";
+	    applyHook(el.hook, eventName, el, function(){
+	        el.style.display = value ? "" : "none";
+	    });
 	}
 
 
-	function parse(rx, args, converters, template){
+	function domAttributes(node, values) {
 	    "use strict";
-	    var match = rx.exec(template), i, l, result = {}, value, limit = args.length, total = 0, func;
-	    if(match){
-	        l = match.length;
-	        for(i=0; i<l; i++){
-	            value = match[i+1];
-	            if(value !== undefined){
-	                ++total;
-	                if(i < limit){
-	                    func = converters[i];
-	                    if(typeof func === 'function'){
-	                        value = func(value);
+	    var el = node.el;
+	    var key, value, type;
+	    var properties = {
+	        hook: 1,
+	        className: 1,
+	        checked:1,
+	        selected:1,
+	        disabled:1,
+	        readonly:1,
+	        innerHTML:1,
+	        innerText:1
+	    };
+	    var events = [];
+	    for (key in values) {
+	        if (values.hasOwnProperty(key)) {
+	            value = values[key];
+	            if(key.substr(0, 2) === 'on'){
+	                events.push([key.substr(2), value]);
+	            }else if(key === 'classes' || key === 'class'){
+	                el.className = dom.classes(value);
+	            }else if(key === 'value' && el.tagName === 'TEXTAREA'){
+	                el.value = value;
+	            }else if(key === "show"){
+	                domDisplay(el, value);
+	            }else if ((value === null || value === undefined) && !(key in properties)) {
+	                el.removeAttribute(key);
+	            } else {
+	                type = typeof value;
+	                if (key === "style") {
+	                    domStyle(el, value);
+	                } else if (key in properties || type === 'function' || type === 'object') {
+	                    el[key] = value;
+	                } else {
+	                    if(type === 'boolean'){
+	                        el[key] = value;
 	                    }
-	                    result[args[i]] = value;
+	                    el.setAttribute(key, value);
 	                }
-	                result[i] = value;
 	            }
 	        }
-	        result.$lastIndex = match[0].length;
-	        return result;
 	    }
-	    return false;
+	    var i, event;
+	    for(i=0; i<events.length; i++){
+	        event = events[i];
+	        domAddEvent(node, el, event[0], event[1]);
+	    }
 	}
 
 
-	function createUrl(segments, args){
+	function domAdopt(node, parent, before, replace){
 	    "use strict";
-	    var i, limit = segments.length, part, result = [], value, actual;
-	    args = args || {};
-	    for(i=0; i < limit; i++){
-	        part = segments[i];
-	        if(typeof part === 'object'){
-	            actual = undefined;
-	            if(args.hasOwnProperty(part.name)){
-	                actual = args[part.name];
-	            }else if(args.hasOwnProperty(part.index)){
-	                actual = args[part.index];
-	            }
-	            if(actual === undefined){
-	                if(!part.optional){
-	                    return false;
-	                }
-	            }else{
-	                value = String(actual);
-	                if(!part.regex.test(value)){
-	                    return false;
-	                }
-	                result.push(value);
-	            }
+	    var el = node.el;
+	    if(typeof before==='number' && (before%1)===0){
+	        before = parent.childNodes[before];
+	    }
+	    if(before){
+	        if(replace){
+	            applyHook(parent.hook, "enter", el, function(){
+	                parent.replaceChild(el, before);
+	            });
 	        }else{
-	            result.push(part);
+	            applyHook(parent.hook, "enter", el, function(){
+	                parent.insertBefore(el, before);
+	            });
 	        }
+	    }else{
+	        applyHook(parent.hook, "enter", el, function(){
+	            parent.appendChild(el);
+	        });
 	    }
-	    return result.join("/");
 	}
 
 
-	function parser(value, terminate){
+	function domRemove(node){
 	    "use strict";
-	    var segments = [], args = [], converters = [], rx = regex(value, terminate, args, converters, segments);
+	    var el = node.el, parent = el.parentNode;
+	    applyHook(parent.hook, "leave", el, function(){
+	        parent.removeChild(el);
+	    });
+	}
 
-	    var func = function (template) {
-	        return parse(rx, args, converters, template);
-	    };
 
-	    var reverse = function(values){
-	        return createUrl(segments, values);
-	    };
-
-	    func.regex = rx;
-
-	    func.reverse = reverse;
-
-	    return func;
+	function domReorder(node, index){
+	    "use strict";
+	    var el = node.el, parent = el.parentNode;
+	    applyHook(parent.hook, "enter", el, function(){
+	        var before = parent.childNodes[index];
+	        if(before !== el){
+	            parent.insertBefore(el, before);
+	        }
+	    });
 	}
 
 
 	module.exports = {
-	    parse: parser,
-	    register: register
+	    reorder: domReorder,
+	    remove: domRemove,
+	    adopt: domAdopt,
+	    attr: domAttributes,
+	    create: domCreate,
+	    clean: domRemoveEvent
 	};
-
 
 /***/ }
 /******/ ])

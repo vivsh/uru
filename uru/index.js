@@ -3,8 +3,7 @@
 var utils = require("./utils"),
     Component = require("./component"),
     nodes = require("./nodes"),
-    dom = require("./dom"),
-    routes = require("./routes");
+    dom = require("./dom");
 
 
 var components = {}, uruStarted = false;
@@ -113,6 +112,7 @@ uru.component = function registerComponent(name){
     components[name] = constructor;
 
     constructor.prototype.$name = name;
+    constructor.prototype.name = name;
 
     return constructor;
 };
@@ -197,48 +197,6 @@ uru.tie = function(attr, callback){
     };
 };
 
-uru.component("router", {
-    routes: [
-
-    ],
-    __createHandler: function(self, value){
-        "use strict";
-        return function(params){
-            self.set({component: value, params: params});
-        };
-    },
-    initialize: function () {
-        "use strict";
-        var routes = {}, self = this, i, defined = this.routes, value;
-        for(i=0; i<defined.length; i++){
-            value = defined[i];
-            routes[value] = this.__createHandler(this, value);
-        }
-        this.router = uru.router(routes);
-        this.router.start();
-    },
-    onUnmount: function () {
-        "use strict";
-      this.router.stop();
-    },
-    onSwitch: function(ctx){
-        "use strict";
-    },
-    render: function(ctx){
-        "use strict";
-        this.onSwitch(ctx);
-        if(ctx.component){
-            return uru(ctx.component, {params: ctx.params});
-        }else{
-            return this.notfound();
-        }
-    },
-    notfound: function(){
-        "use strict";
-        return uru("h1", "Oops ! Not found !!!!");
-    }
-});
-
 uru.redraw = nodes.redraw;
 
 uru.queue = nodes.Queue;
@@ -250,24 +208,6 @@ uru.dom = dom;
 uru.utils = utils;
 
 uru.Component = Component;
-
-uru.hook = nodes.hook;
-
-uru.classes = dom.classes;
-
-uru.route = routes.route;
-
-uru.link = routes.link;
-
-uru.router = function(values){
-    "use strict";
-    return new routes.Router(values);
-};
-
-uru.resolve = routes.resolve;
-
-uru.reverse = routes.reverse;
-
 
 
 module.exports = uru;

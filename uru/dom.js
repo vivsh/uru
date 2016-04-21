@@ -242,6 +242,21 @@ function setValue(el, value){
     return el.value;
 }
 
+function equalTagName(node1, tagName){
+    "use strict";
+    return node1.tagName === tagName;
+}
+
+function closestNode(element, ancestor) {
+    "use strict";
+    var target = element, compare = typeof ancestor === 'function' ? ancestor : equalTagName;
+    while(!compare(target, ancestor) && target.parentNode){
+        target = target.parentNode;
+    }
+    return target;
+}
+
+
 module.exports = {
     normalizeEvent: normalizeEvent,
     removeEventListeners: removeEventListeners,
@@ -256,6 +271,7 @@ module.exports = {
     ready: ready,
     data: data,
     getValue: getValue,
-    setValue: setValue
+    setValue: setValue,
+    closest: closestNode
 };
 
