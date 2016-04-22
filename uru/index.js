@@ -173,9 +173,6 @@ function runUru(options){
                el.__uruComponent = true;
                mount(uru(name, options), el);
            }
-            if(!settings.disableLinkRouting){
-                routes.mount();
-            }
         });
     });
     uruStarted = true;

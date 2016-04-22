@@ -37,7 +37,7 @@ Component.prototype = {
     },
     set: function(values, silent){
         "use strict";
-        var key, value, initial, state = this.context, dirty = this.$dirty,
+        var key, value, initial, state = this.context, dirty = false,
             events = this.$events, eventName, changes = {};
         if(values) {
             for (key in values) {
@@ -55,22 +55,27 @@ Component.prototype = {
                             events[eventName] = value;
                         }
                     }
-                    else if(typeof value === 'object'){
-                        this.$dirty = true;
+                    else if(typeof value === 'object' && !Object.isFrozen(value)){
+                        dirty = true;
                         state[key] = value;
                     }else if (value !== initial) {
                         state[key] = value;
                         changes[key] = {current: value, previous: initial};
+                        dirty = true;
                     }
                 }
             }
         }
-        if(this.$dirty && !silent){
+        if(dirty && !silent){
+            for(var k in changes){
+                if(changes.hasOwnProperty(k)){
+                    this.on("change:"+k, changes[k]);
+                }
+            }
+            this.on("change", changes);
             nodes.redraw();
         }
-        // if(this.$dirty && !dirty && !silent){
-        //     nodes.redraw();
-        // }
+        this.$dirty = dirty;
     },
     on: function(name, callback){
         "use strict";
@@ -99,11 +104,14 @@ Component.prototype = {
         }
         return this;
     },
-    trigger: function(name, data, propagate){
+    trigger: function(name, data, nobubble){
         "use strict";
-        var event = {type: name, data: data, target: this}, component = this;
+        var event = {type: name, data: data, target: this, propagate: !nobubble}, component = this;
         while(component && component.$callHandlers){
             component.$callHandlers(event);
+            if(!event.propagate){
+                break;
+            }
             component = component.$owner;
         }
         return this;

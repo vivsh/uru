@@ -188,6 +188,26 @@ function pathname(){
 }
 
 
+function debounce(func, wait, immediate) {
+    "use strict";
+	var timeout;
+	return function() {
+		var context = this, args = arguments;
+		var later = function() {
+			timeout = null;
+			if (!immediate) {
+                func.apply(context, args);
+            }
+		};
+		var callNow = immediate && !timeout;
+		clearTimeout(timeout);
+		timeout = setTimeout(later, wait);
+		if (callNow) {
+            func.apply(context, args);
+        }
+	};
+}
+
 module.exports = {
     isArray: isArray,
     isString: isString,
@@ -204,5 +224,6 @@ module.exports = {
     noop: noop,
     isExternalUrl: isExternalUrl,
     buildQuery: buildQuery,
-    pathname: pathname
+    pathname: pathname,
+    debounce: debounce
 };
