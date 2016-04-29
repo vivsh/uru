@@ -62,7 +62,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    dom = __webpack_require__(4);
 
 
-	var components = {}, uruStarted = false;
+	var components = {}, uruStarted = false, directives = {};
 
 	function parseTag(value, attrs){
 	    "use strict";
@@ -106,11 +106,16 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    attrs = utils.merge({}, utils.isPlainObject(stack[0]) ? stack.shift() : null);
 
+	    if(attrs.hasOwnProperty("if") && !attrs.if){
+	        return null;
+	    }
+	    delete attrs.if;
+
 	    while(stack.length){
 	        item = stack.shift();
 	        if(utils.isArray(item)){
 	            stack.unshift.apply(stack, item);
-	        }else if(item){
+	        }else if(item != null){ //jshint ignore:line
 	            if(!(item instanceof nodes.DomNode) && !(item instanceof nodes.ComponentNode)){
 	                item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
 	            }
@@ -145,9 +150,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	            result.key = attrs.key;
 	            delete attrs.key;
 	        }
+	        // for(key in directives){
+	        //     if(directives.hasOwnProperty(key) && key in attrs){
+	        //         result = directives[key](attrs[key], result);
+	        //         delete attrs[key];
+	        //     }
+	        // }
 	    }
 
 	    return result;
+	}
+
+	uru.directive = function registerDirective(name, func) {
+	    "use strict";
+	    if(arguments.length >= 2){
+	        directives[name] = func;
+	    }
+	    return directives[name];
 	}
 
 
@@ -261,7 +280,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.utils = utils;
 
 	uru.Component = Component;
-
 
 	module.exports = uru;
 
@@ -520,9 +538,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.context = {}
 	    this.$dirty = true;
 	    this.set(attrs, true);
-	    if (this.initialize) {
-	        this.initialize.apply(this, arguments);
-	    }
+	    // if (this.initialize) {
+	    //     this.initialize.apply(this, arguments);
+	    // }
 	    this.$dirty = false;
 	}
 
@@ -553,7 +571,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                if (values.hasOwnProperty(key)) {
 	                    value = values[key];
 	                    initial = state[key];
-	                    if(key.substr(0, 2) === 'on'){
+	                    if(false){
 	                        eventName = key.substr(2);
 	                        if(eventName in events){
 	                            this.off(eventName, value);
@@ -575,16 +593,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	            }
 	        }
-	        if(dirty && !silent){
-	            for(var k in changes){
-	                if(changes.hasOwnProperty(k)){
-	                    this.on("change:"+k, changes[k]);
-	                }
-	            }
-	            this.on("change", changes);
+	        if(dirty && !silent && !this.$silent){
+	            // for(var k in changes){
+	            //     if(changes.hasOwnProperty(k)){
+	            //         this.on("change:"+k, changes[k]);
+	            //     }
+	            // }
+	            // this.on("change", changes);
 	            nodes.redraw();
 	        }
-	        this.$dirty = dirty;
+	        if(dirty) {
+	            this.$dirty = dirty;
+	        }
 	    },
 	    on: function(name, callback){
 	        "use strict";
@@ -660,7 +680,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(listeners && (name in listeners)){
 	            var i, items = listeners[name];
 	            for(i=0;i<items.length;i++){
-	                listeners.call(this.$owner, event);
+	                items[i].call(this.$owner, event);
 	            }
 	        }
 	    },
@@ -738,7 +758,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	var updateId = new Date().getTime(), oid = 87;
 
 	var domHooks = {};
-
 
 	var DOM_PROPERTIES = ['innerText', 'innerHTML', 'value', 'checked', 'selected', 'selectedIndex',
 	        'disabled', 'readonly', 'className', 'style'];
@@ -837,7 +856,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	function domData(el) {
 	    "use strict";
 	    var key = "__uruData";
-	    var data = el[key]  || (el[key] = {events: {}});
+	    var data = el[key]  || (el[key] = {events: {}, directives: {}});
 	    return data;
 	}
 
@@ -1023,7 +1042,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        this.el = el;
 	        this.owner = owner;
-	        
+
 	        domAdopt(this, parent, before, replace);
 
 	        delete this.tenant;
@@ -1055,10 +1074,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(!isText){
 	            pushChildNodes(stack, this.el, this.owner, this.children, 'src', CLEAN);
 	        }
+
 	        if(!nodelete && el.parentNode){
 	            domRemove(this);
 	        }
-	        domClean(this);
+	        //check
+	        if(this.el) {
+	            domClean(this);
+	        }
 	        this.owner.$updated = true;
 	        this.el = null;
 	        this.owner = null;
@@ -1066,6 +1089,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    patch: function(stack, src){
 	        "use strict";
 	        var el = src.el, isText = this.type === TEXT_TYPE, owner = src.owner;
+	        if(this === src){
+	            throw new Error("Src and this should never be the same");
+	        }
 
 	        this.el = el;
 	        this.owner = owner;
@@ -1126,9 +1152,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	}
 
-
 	function clone(node){
 	    "use strict";
+	    //might have issues with directives
 	    var root = [], stack = [{node: node, container: root}], attrs, item, child, obj, container, i, children;
 	    while(stack.length){
 	        obj = stack.pop();
@@ -1145,6 +1171,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	                attrs = utils.merge({}, item.attrs);
 	                container = [];
 	                child = new item.constructor(item.type, attrs, container, item.index);
+	                if(item.hasOwnProperty('key')){
+	                    child.key = item.key;
+	                }
 	            }
 	            obj.container.unshift(child);
 	        }
@@ -1156,7 +1185,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    return root[0];
 	}
-
 
 	function ComponentNode(type, attrs, children, index){
 	    "use strict";
@@ -1177,9 +1205,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    constructor: ComponentNode,
 	    render: function(){
 	        "use strict";
-	        var content = this.inclusion ;//&& this.inclusion.length ? clone(this.inclusion) : undefined;
+	        // var content = this.inclusion ;
+	        var content = this.inclusion && this.inclusion.length ? clone(this.inclusion) : undefined;
 	        var tree = this.component.render(this.component.context, content);
-
 	        if(tree){
 	            tree.index = this.index;
 	            this.children = [tree];
@@ -1195,15 +1223,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	        "use strict";
 	        var component = this.component = new this.type(this.attrs);
 	        ownComponent(owner, component);
+	        component.$tag = this;
+	        component.$lastUpdate = updateId;
+	        this.owner = owner;
+
+	        if(component.initialize){
+	            component.$silent = true;
+	            component.initialize(this.attrs);
+	            delete component.$silent;
+	        }
+
 	        if(component.hasChanged){
 	            component.hasChanged();
 	        }
-	        component.$tag = this;
-	        this.render();
-	        this.owner = owner;
-	        this.el = null;
 
-	        component.$lastUpdate = updateId;
+	        this.render();
+
+	        this.el = null;
 	        pushChildNodes(stack, parent, this.component, this.children, 'dst');
 	    },
 	    replace: function(stack, src, owner){
@@ -1252,18 +1288,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	        "use strict";
 	        var stack = [this.component], content, component, tree, i, l;
 	        while(stack.length){
+	            tree = null;
 	            component = stack.pop();
-	            if(component.hasChanged && component.hasChanged()){
-	                tree = component.$tree;
-	                content = component.$tag.render();
-	                patch(content, tree);
-	                if(component.$updated && component.onUpdate){
-	                    component.onUpdate();
+	            try {
+	                if (component.hasChanged && component.hasChanged()) {
+	                    tree = component.$tree;
+	                    content = component.$tag.render();
+	                    patch(content, tree);
+	                    if (component.$updated && component.onUpdate) {
+	                        component.onUpdate();
+	                    }
 	                }
+	                delete component.$updated;
+	                component.$dirty = false;
+	                stack.push.apply(stack, component.$children);
+	            }catch(e){
+	                componentError(component, e);
 	            }
-	            delete component.$updated;
-	            component.$dirty = false;
-	            stack.push.apply(stack, component.$children);
 	        }
 	    },
 	    setEl: function(node){
@@ -1278,6 +1319,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return this.component.el;
 	    }
 	};
+
+
+	function componentError(component, e) {
+	    "use strict";
+	    var owner = component.$owner;
+	    console.log(e.stack);
+	    component.$tag.defective = true;
+	    disownComponent(component);
+
+	    nextTick(function(){
+	        owner.trigger("error", e);
+	    });
+	    if(component.$tree){
+	        patch(null, component.$tree);
+	    }
+	}
 
 
 	function patch(target, current, rootElement, before){
@@ -1301,22 +1358,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	        dst = item.dst;
 	        parent = item.parent;
 	        owner = item.owner;
+
 	        if(!dst){
 	            if(src.component){
 	                deletes.push(src.component);
 	                src.component.$unmounted();
 	            }
 	            src.destroy(stack, item.action === CLEAN);
-	        }else if(!src){
-	            dst.create(stack, parent, owner);
-	            if(dst.component){
-	                mounts.push(dst.component);
+	        }else if(!src || src.defective ){
+	            try{
+	                dst.create(stack, parent, owner);
+	                if(dst.component){
+	                    mounts.push(dst.component);
+	                }
+	            }catch (e){
+	                componentError(dst.component, e);
 	            }
 	        }else if(src.type !== dst.type){
-	            dst.replace(stack, src, owner);
-	            if(dst.component){
-	                mounts.push(dst.component);
-	            }
+	            // dst.replace(stack, src, owner);
+	            // if(dst.component){
+	            //     mounts.push(dst.component);
+	            // }
+	            pushChildNodes(stack, parent, owner, [dst], 'dst');
+	            pushChildNodes(stack, parent, owner, [src], 'src');
 	        }else{
 	            dst.patch(stack, src);
 	        }
@@ -1381,7 +1445,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    l = dst.length;
 	    for(i=0; i<l; i++){
 	        dstChild = dst[i];
-	        if(dstChild.hasOwnProperty("key")){
+	        if(dstChild.hasOwnProperty("key") && typeof dstChild.key === 'number'){
 	            if(!childMap){
 	                childMap = getChildNodesMap(src);
 	            }
@@ -1419,13 +1483,21 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 	rootComponent = new ComponentNode();
-	rootComponent.component = {$tag: rootComponent};
+	rootComponent.component = {$tag: rootComponent, $name: "_root", name: "_root"};
 
 
 	function update(){
 	    "use strict";
 	    updateId += 1;
 	    rootComponent.update();
+	}
+
+
+	function mount(node, element, before){
+	    "use strict";
+	    updateId += 1;
+	    patch(node, null, element, before);
+	    return node;
 	}
 
 
@@ -1459,6 +1531,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    "use strict";
 	    if(!requestRunning){
 	        requestRunning = true;
+	        // updateUI();
 	        nextTick(updateUI);
 	    }
 	}
@@ -1478,6 +1551,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    ComponentNode: ComponentNode,
 	    TEXT_TYPE: TEXT_TYPE,
 	    patch: patch,
+	    mount: mount,
 	    update: update,
 	    render: render,
 	    redraw: redraw,
