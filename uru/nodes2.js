@@ -307,7 +307,7 @@ DomNode.prototype = {
 
         this.el = el;
         this.owner = owner;
-
+        
         domAdopt(this, parent, before, replace);
 
         delete this.tenant;
@@ -326,20 +326,19 @@ DomNode.prototype = {
             pushChildNodes(stack, this.el, this.owner, this.children, 'dst');
         }
     },
-    replace: function (stack, src, owner) {
-        "use strict";
-        var el = src.component ? src.component.el : src.el, parent = el.parentNode;
-        this.tenant = src;
-        pushChildNodes(stack, parent, owner, [src], 'src', CLEAN);
-        this.create(stack, parent, owner);
-    },
+    // replace: function (stack, src, owner) {
+    //     "use strict";
+    //     var el = src.component ? src.component.el : src.el, parent = el.parentNode;
+    //     this.tenant = src;
+    //     pushChildNodes(stack, parent, owner, [src], 'src');
+    //     this.create(stack, parent, owner);
+    // },
     destroy: function(stack, nodelete) {
         "use strict";
         var isText = this.type === TEXT_TYPE, owner = this.owner, el = this.el;
         if(!isText){
             pushChildNodes(stack, this.el, this.owner, this.children, 'src', CLEAN);
         }
-
         if(!nodelete && el.parentNode){
             domRemove(this);
         }
@@ -354,9 +353,6 @@ DomNode.prototype = {
     patch: function(stack, src){
         "use strict";
         var el = src.el, isText = this.type === TEXT_TYPE, owner = src.owner;
-        if(this === src){
-            throw new Error("Src and this should never be the same");
-        }
 
         this.el = el;
         this.owner = owner;
@@ -417,39 +413,7 @@ function disownComponent(child){
     }
 }
 
-function clone(node){
-    "use strict";
-    //might have issues with directives
-    var root = [], stack = [{node: node, container: root}], attrs, item, child, obj, container, i, children;
-    while(stack.length){
-        obj = stack.pop();
-        item = obj.node;
-        if(utils.isArray(item)){
-            obj.container.push(container = []);
-            children = item;
-        }else{
-            if(item.type === TEXT_TYPE){
-                container = null;
-                child = new DomNode(TEXT_TYPE, null, item.children, item.index);
-            }else{
-                children = item.children;
-                attrs = utils.merge({}, item.attrs);
-                container = [];
-                child = new item.constructor(item.type, attrs, container, item.index);
-                if(item.hasOwnProperty('key')){
-                    child.key = item.key;
-                }
-            }
-            obj.container.unshift(child);
-        }
-        if(container){
-            for(i=0; i<children.length; i++){
-                stack.push({container: container, node: children[i]});
-            }
-        }
-    }
-    return root[0];
-}
+
 
 function ComponentNode(type, attrs, children, index){
     "use strict";
@@ -470,11 +434,12 @@ ComponentNode.prototype = {
     constructor: ComponentNode,
     render: function(){
         "use strict";
-        // var content = this.inclusion ;
-        var content = this.inclusion && this.inclusion.length ? clone(this.inclusion) : undefined;
+        var content = this.inclusion ;//&& this.inclusion.length ? clone(this.inclusion) : undefined;
         var tree = this.component.render(this.component.context, content);
+
         if(tree){
             tree.index = this.index;
+            tree.owner = this.component;
             this.children = [tree];
         }else{
             this.children = [];
@@ -487,40 +452,36 @@ ComponentNode.prototype = {
     create: function(stack, parent, owner){
         "use strict";
         var component = this.component = new this.type(this.attrs);
+        console.log(">>>>>>>>>>>>> ",owner.name, component.name);
         ownComponent(owner, component);
-        component.$tag = this;
-        component.$lastUpdate = updateId;
-        this.owner = owner;
-
         if(component.initialize){
-            component.$silent = true;
             component.initialize(this.attrs);
-            delete component.$silent;
         }
-
-        if(component.hasChanged){
-            component.hasChanged();
-        }
-
-        this.render();
-
+        // if(component.hasChanged){
+        //     component.hasChanged();
+        // }
+        component.$tag = this;
+        // this.render();
+        this.owner = owner;
         this.el = null;
-        pushChildNodes(stack, parent, this.component, this.children, 'dst');
+        //
+        // component.$lastUpdate = updateId;
+        // pushChildNodes(stack, parent, this.component, this.children, 'dst');
     },
-    replace: function(stack, src, owner){
-        "use strict";
-
-        var  parent = src.el.parentNode, tree;
-
-        pushChildNodes(stack, parent, owner, [src], 'src');
-
-        this.create(stack, parent, owner);
-
-        tree = this.children[0];
-
-        tree.tenant = src;
-
-    },
+    // replace: function(stack, src, owner){
+    //     "use strict";
+    //
+    //     var  parent = src.el.parentNode, tree;
+    //
+    //     pushChildNodes(stack, parent, owner, [src], 'src');
+    //
+    //     this.create(stack, parent, owner);
+    //
+    //     tree = this.children[0];
+    //
+    //     tree.tenant = src;
+    //
+    // },
     destroy: function (stack, nodelete) {
         "use strict";
         var action = nodelete ? CLEAN : null;
@@ -555,20 +516,30 @@ ComponentNode.prototype = {
         while(stack.length){
             tree = null;
             component = stack.pop();
-            try {
-                if (component.hasChanged && component.hasChanged()) {
+            console.log("Updating", component.name);
+            try{
+                if(component.hasChanged && component.hasChanged()){
                     tree = component.$tree;
                     content = component.$tag.render();
-                    patch(content, tree);
-                    if (component.$updated && component.onUpdate) {
+                    var result = patch(content, tree);
+
+                    console.log(content, tree, component.name, result);
+
+                    if(component.$updated && component.onUpdate){
                         component.onUpdate();
                     }
                 }
                 delete component.$updated;
                 component.$dirty = false;
+                console.log("Children for ", component.$children);
                 stack.push.apply(stack, component.$children);
             }catch(e){
-                componentError(component, e);
+                // if(!tree){
+                    component.$tag.defective = true;
+                // }
+                disownComponent(component);
+                // component.trigger("error", e);
+                console.log(e.stack);
             }
         }
     },
@@ -586,32 +557,16 @@ ComponentNode.prototype = {
 };
 
 
-function componentError(component, e) {
-    "use strict";
-    var owner = component.$owner;
-    console.log(e.stack);
-    component.$tag.defective = true;
-    disownComponent(component);
-
-    nextTick(function(){
-        owner.trigger("error", e);
-    });
-    if(component.$tree){
-        patch(null, component.$tree);
-    }
-}
-
-
-function patch(target, current, rootElement, before){
+function patch(target, current, rootElement){
     "use strict";
     var origin = {
         src: current,
         dst: target,
-        owner: (current && current.owner) || rootComponent.component,
-        parent:current ? current.el.parentNode : document.createDocumentFragment()
+        owner: target.owner || (current && current.owner) || rootComponent.component,
+        parent: rootElement || document.createDocumentFragment()
     }, stack = [origin], item, src, dst, parent, owner;
 
-    var mounts = [], unmounts = [], updates = [], deletes = [], i, l, child;
+    var mounts = [], deletes = [], i, l, child;
 
     if(target === current){
         return origin.parent;
@@ -623,7 +578,6 @@ function patch(target, current, rootElement, before){
         dst = item.dst;
         parent = item.parent;
         owner = item.owner;
-
         if(!dst){
             if(src.component){
                 deletes.push(src.component);
@@ -634,16 +588,15 @@ function patch(target, current, rootElement, before){
             try{
                 dst.create(stack, parent, owner);
                 if(dst.component){
+                    console.log("Creating", dst.component.name, owner.name);
                     mounts.push(dst.component);
                 }
             }catch (e){
-                componentError(dst.component, e);
+                disownComponent(dst.component);
+                dst.defective = true;
+                console.log(e, dst.component.name, owner.name, new Error().stack);
             }
         }else if(src.type !== dst.type){
-            // dst.replace(stack, src, owner);
-            // if(dst.component){
-            //     mounts.push(dst.component);
-            // }
             pushChildNodes(stack, parent, owner, [dst], 'dst');
             pushChildNodes(stack, parent, owner, [src], 'src');
         }else{
@@ -710,7 +663,7 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
     l = dst.length;
     for(i=0; i<l; i++){
         dstChild = dst[i];
-        if(dstChild.hasOwnProperty("key") && typeof dstChild.key === 'number'){
+        if(dstChild.hasOwnProperty("key")){
             if(!childMap){
                 childMap = getChildNodesMap(src);
             }
@@ -758,14 +711,6 @@ function update(){
 }
 
 
-function mount(node, element, before){
-    "use strict";
-    updateId += 1;
-    patch(node, null, element, before);
-    return node;
-}
-
-
 function setHook(name, handler){
     "use strict";
 }
@@ -796,7 +741,6 @@ function redraw(){
     "use strict";
     if(!requestRunning){
         requestRunning = true;
-        // updateUI();
         nextTick(updateUI);
     }
 }
@@ -816,7 +760,6 @@ module.exports = {
     ComponentNode: ComponentNode,
     TEXT_TYPE: TEXT_TYPE,
     patch: patch,
-    mount: mount,
     update: update,
     render: render,
     redraw: redraw,

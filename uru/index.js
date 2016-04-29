@@ -6,7 +6,7 @@ var utils = require("./utils"),
     dom = require("./dom");
 
 
-var components = {}, uruStarted = false;
+var components = {}, uruStarted = false, directives = {};
 
 function parseTag(value, attrs){
     "use strict";
@@ -50,11 +50,16 @@ function uru(tagName){
 
     attrs = utils.merge({}, utils.isPlainObject(stack[0]) ? stack.shift() : null);
 
+    if(attrs.hasOwnProperty("if") && !attrs.if){
+        return null;
+    }
+    delete attrs.if;
+
     while(stack.length){
         item = stack.shift();
         if(utils.isArray(item)){
             stack.unshift.apply(stack, item);
-        }else if(item){
+        }else if(item != null){ //jshint ignore:line
             if(!(item instanceof nodes.DomNode) && !(item instanceof nodes.ComponentNode)){
                 item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
             }
@@ -89,9 +94,23 @@ function uru(tagName){
             result.key = attrs.key;
             delete attrs.key;
         }
+        // for(key in directives){
+        //     if(directives.hasOwnProperty(key) && key in attrs){
+        //         result = directives[key](attrs[key], result);
+        //         delete attrs[key];
+        //     }
+        // }
     }
 
     return result;
+}
+
+uru.directive = function registerDirective(name, func) {
+    "use strict";
+    if(arguments.length >= 2){
+        directives[name] = func;
+    }
+    return directives[name];
 }
 
 
@@ -205,7 +224,6 @@ uru.dom = dom;
 uru.utils = utils;
 
 uru.Component = Component;
-
 
 module.exports = uru;
 

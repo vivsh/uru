@@ -11,9 +11,9 @@ function Component(attrs){
     this.context = {}
     this.$dirty = true;
     this.set(attrs, true);
-    if (this.initialize) {
-        this.initialize.apply(this, arguments);
-    }
+    // if (this.initialize) {
+    //     this.initialize.apply(this, arguments);
+    // }
     this.$dirty = false;
 }
 
@@ -44,7 +44,7 @@ Component.prototype = {
                 if (values.hasOwnProperty(key)) {
                     value = values[key];
                     initial = state[key];
-                    if(key.substr(0, 2) === 'on'){
+                    if(0 && key.substr(0, 2) === 'on'){
                         eventName = key.substr(2);
                         if(eventName in events){
                             this.off(eventName, value);
@@ -66,16 +66,18 @@ Component.prototype = {
                 }
             }
         }
-        if(dirty && !silent){
-            for(var k in changes){
-                if(changes.hasOwnProperty(k)){
-                    this.on("change:"+k, changes[k]);
-                }
-            }
-            this.on("change", changes);
+        if(dirty && !silent && !this.$silent){
+            // for(var k in changes){
+            //     if(changes.hasOwnProperty(k)){
+            //         this.on("change:"+k, changes[k]);
+            //     }
+            // }
+            // this.on("change", changes);
             nodes.redraw();
         }
-        this.$dirty = dirty;
+        if(dirty) {
+            this.$dirty = dirty;
+        }
     },
     on: function(name, callback){
         "use strict";
@@ -151,7 +153,7 @@ Component.prototype = {
         if(listeners && (name in listeners)){
             var i, items = listeners[name];
             for(i=0;i<items.length;i++){
-                listeners.call(this.$owner, event);
+                items[i].call(this.$owner, event);
             }
         }
     },
