@@ -59,7 +59,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	var utils = __webpack_require__(1),
 	    Component = __webpack_require__(2),
 	    nodes = __webpack_require__(3),
-	    dom = __webpack_require__(4);
+	    dom = __webpack_require__(4),
+	    emitter = __webpack_require__(5),
+	    uruId = __webpack_require__(6);
+
 
 
 	var components = {}, uruStarted = false, directives = {};
@@ -219,6 +222,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    nodes.render(function(){
 	        mount.apply(null, args);
 	    });
+	    return args[0];
 	};
 
 	uru.unmount = function(){
@@ -280,6 +284,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.utils = utils;
 
 	uru.Component = Component;
+
+	uru.emitter = emitter;
+
+	uru.id = uruId;
+
+	emitter.enhance(uru);
 
 	module.exports = uru;
 
@@ -348,7 +358,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    mixins.unshift(proto);
 	    assign.apply(null, mixins);
 	    assign(subclass, statics);
-	    subclass.extend = extend;
+	    if(subclass.initialize){
+	        subclass.initialize();
+	    }
+	    subclass.extend = this.extend;
 	    return subclass;
 	};
 
@@ -501,6 +514,20 @@ return /******/ (function(modules) { // webpackBootstrap
 		};
 	}
 
+	function property(object, name){
+	    "use strict";
+	    var getterName = "get" + name.charAt(0) + name.substring(1),
+	        setterName = "set" + name.charAt(0) + name.substring(1);
+	    var options = {};
+	    if(typeof object[getterName] === 'function'){
+	        options.get = function(){ return this[getterName](); };
+	    }
+	    if(typeof object[setterName] === 'function'){
+	        options.set = function(){ return this[getterName](); };
+	    }
+	    Object.defineProperty(object, name, options);
+	}
+
 	module.exports = {
 	    isArray: isArray,
 	    isString: isString,
@@ -518,7 +545,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    isExternalUrl: isExternalUrl,
 	    buildQuery: buildQuery,
 	    pathname: pathname,
-	    debounce: debounce
+	    debounce: debounce,
+	    property: property
 	};
 
 /***/ },
@@ -528,20 +556,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 
 	var utils = __webpack_require__(1),
-	    nodes = __webpack_require__(3);
+	    nodes = __webpack_require__(3),
+	    emitter = __webpack_require__(5);
 
 
 	function Component(attrs){
 	    "use strict";
+	    //can't call initialize from here as ownComponent should always be called from here.
 	    attrs = utils.merge({}, this.context, attrs);
 	    this.$events = {};
 	    this.context = {}
 	    this.$dirty = true;
 	    this.set(attrs, true);
-	    // if (this.initialize) {
-	    //     this.initialize.apply(this, arguments);
-	    // }
 	    this.$dirty = false;
+	    this.$created = true;
 	}
 
 
@@ -556,11 +584,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if (this.getContext){
 	            var changes = this.getContext(this.context);
 	            if(changes){
-	                this.set(changes, true);
+	                this.set(changes);
 	            }
 	            return this.$dirty;
 	        }
+	        if(this.$created){
+	            return this.$dirty;
+	        }
 	        return true;
+	    },
+	    getParent: function () {
+	        "use strict";
+	        return this.$owner;
 	    },
 	    set: function(values, silent){
 	        "use strict";
@@ -582,120 +617,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	                            events[eventName] = value;
 	                        }
 	                    }
-	                    else if(typeof value === 'object' && !Object.isFrozen(value)){
-	                        dirty = true;
-	                        state[key] = value;
-	                    }else if (value !== initial) {
+	                    else if (value !== initial) {
 	                        state[key] = value;
 	                        changes[key] = {current: value, previous: initial};
 	                        dirty = true;
+	                    }else if(typeof value === 'object' && !Object.isFrozen(value)){
+	                        dirty = true;
+	                        state[key] = value;
 	                    }
 	                }
 	            }
 	        }
-	        if(dirty && !silent && !this.$silent){
-	            // for(var k in changes){
-	            //     if(changes.hasOwnProperty(k)){
-	            //         this.on("change:"+k, changes[k]);
-	            //     }
-	            // }
-	            // this.on("change", changes);
-	            nodes.redraw();
+	        if(dirty && !silent){
+	            for(var k in changes){
+	                if(changes.hasOwnProperty(k)){
+	                    this.on("change:"+k, changes[k]);
+	                }
+	            }
+	            this.on("change", changes);
+	            this.$created = false;
 	        }
 	        if(dirty) {
 	            this.$dirty = dirty;
 	        }
-	    },
-	    on: function(name, callback){
-	        "use strict";
-	        var callbacks = this.$handlers;
-	        if(!callbacks){
-	            callbacks = this.$handlers = {};
-	        }
-	        if(!(name in callbacks)){
-	            callbacks[name] = [];
-	        }
-	        callbacks[name].push(callback);
-	        return this;
-	    },
-	    off: function(name, callback){
-	        "use strict";
-	        var argc = arguments.length, listeners = this.$handlers;
-	        if(!listeners || (name && !(name in listeners))){
-	            return;
-	        }
-	        if(argc === 0){
-	            this.$handlers = {};
-	        }else if(argc === 1){
-	            delete listeners[name];
-	        }else{
-	            utils.remove(listeners[name], callback);
-	        }
-	        return this;
-	    },
-	    trigger: function(name, data, nobubble){
-	        "use strict";
-	        var event = {type: name, data: data, target: this, propagate: !nobubble}, component = this;
-	        while(component && component.$callHandlers){
-	            component.$callHandlers(event);
-	            if(!event.propagate){
-	                break;
-	            }
-	            component = component.$owner;
-	        }
-	        return this;
-	    },
-	    listenTo: function(obj, name, callback){
-	        "use strict";
-	        var listeners = this.$monitors, self = this;
-	        if(utils.isString(callback)){
-	            callback = this[callback];
-	        }
-	        function callbackWrapper(){
-	            return callback.apply(self, arguments);
-	        }
-	        callbackWrapper.originalFunc = callback;
-	        if(!listeners){
-	            listeners = this.$monitors = [];
-	        }
-	        obj.on(name, callbackWrapper);
-	        listeners.push([obj, name, callbackWrapper]);
-	        return this;
-	    },
-	    stopListening: function(){
-	        "use strict";
-	        var listeners = this.$monitors, i = 0, item;
-	        if(listeners){
-	            for(i=0; i< listeners.length; i++){
-	                item = listeners[i];
-	                item[0].off(item[1], item[2]);
-	            }
-	            delete this.$monitors;
-	        }
-	        return this;
-	    },
-	    $callHandlers: function(event){
-	        "use strict";
-	        var listeners = this.$handlers, name = event.type;
-	        if(listeners && (name in listeners)){
-	            var i, items = listeners[name];
-	            for(i=0;i<items.length;i++){
-	                items[i].call(this.$owner, event);
-	            }
-	        }
-	    },
-	    $render: function(content){
-	        "use strict";
-	        var tree;
-	        try{
-	            if(!this.$tree || this.hasChanged()){
-	                tree = this.render(this.context);
-	            }
-	        }catch (e){
-	            this.trigger("error", e);
-	            throw e;
-	        }
-	        return tree;
 	    },
 	    $mounted: function () {
 	        "use strict";
@@ -726,6 +670,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	Component.extend = utils.extend;
 
+	emitter.enhance(Component.prototype);
 
 	module.exports = Component;
 
@@ -735,12 +680,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	
 	var utils = __webpack_require__(1),
-	    dom = __webpack_require__(4);
+	    dom = __webpack_require__(4),
+	    emitter = __webpack_require__(5);
+
 
 	var nextTick;
 
-
-	var requestRunning = false;
+	var requestRunning = false, requestPending = false;
 
 	if(typeof window === 'object'){
 	    nextTick = window.requestAnimationFrame || window.setTimeout;
@@ -969,15 +915,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        before = parent.childNodes[before];
 	    }
 	    if(before){
-	        if(replace){
-	            applyHook(parent.hook, "enter", el, function(){
-	                parent.replaceChild(el, before);
-	            });
-	        }else{
-	            applyHook(parent.hook, "enter", el, function(){
-	                parent.insertBefore(el, before);
-	            });
-	        }
+	        applyHook(parent.hook, "enter", el, function(){
+	            parent.insertBefore(el, before);
+	        });
 	    }else{
 	        applyHook(parent.hook, "enter", el, function(){
 	            parent.appendChild(el);
@@ -1024,13 +964,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    constructor: DomNode,
 	    create: function(stack, parent, owner){
 	        "use strict";
-	        var src = this.tenant, before, replace;
-
-	        if(src){
-	            before = src.el;
-	            replace = true;
-	        }
-
 	        var el, isText = this.type === TEXT_TYPE;
 
 	        if(isText){
@@ -1043,13 +976,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.el = el;
 	        this.owner = owner;
 
-	        domAdopt(this, parent, before, replace);
+	        domAdopt(this, parent);
 
 	        delete this.tenant;
-
-	        if(src && this.index !== src.index){
-	            this.reorder(src);
-	        }
 
 	        if(owner && owner.$tree === this){
 	            owner.$tag.setEl(this);
@@ -1061,13 +990,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	            pushChildNodes(stack, this.el, this.owner, this.children, 'dst');
 	        }
 	    },
-	    replace: function (stack, src, owner) {
-	        "use strict";
-	        var el = src.component ? src.component.el : src.el, parent = el.parentNode;
-	        this.tenant = src;
-	        pushChildNodes(stack, parent, owner, [src], 'src', CLEAN);
-	        this.create(stack, parent, owner);
-	    },
 	    destroy: function(stack, nodelete) {
 	        "use strict";
 	        var isText = this.type === TEXT_TYPE, owner = this.owner, el = this.el;
@@ -1075,13 +997,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	            pushChildNodes(stack, this.el, this.owner, this.children, 'src', CLEAN);
 	        }
 
-	        if(!nodelete && el.parentNode){
+	        if(!nodelete){
 	            domRemove(this);
 	        }
-	        //check
-	        if(this.el) {
-	            domClean(this);
-	        }
+
+	        domClean(this);
+
 	        this.owner.$updated = true;
 	        this.el = null;
 	        this.owner = null;
@@ -1113,10 +1034,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(this.index !== src.index){
 	            this.reorder(src);
 	        }
-	        src.el = null;
+
 	        if(!isText){
 	            patchChildNodes(stack, this.el, src.owner, src.children, this.children);
 	        }
+
+	        src.owner = null;
+	        src.el = null;
 	    },
 	    reorder: function(src){
 	        "use strict";
@@ -1148,6 +1072,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    for(i=0; i<l; i++){
 	        if(children[i] === child){
 	            children.splice(i,1);
+	            return;
 	        }
 	    }
 	}
@@ -1171,9 +1096,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	                attrs = utils.merge({}, item.attrs);
 	                container = [];
 	                child = new item.constructor(item.type, attrs, container, item.index);
-	                if(item.hasOwnProperty('key')){
-	                    child.key = item.key;
-	                }
+	            }
+	            if(typeof item.key === 'number'){
+	                child.key = item.key;
 	            }
 	            obj.container.unshift(child);
 	        }
@@ -1188,7 +1113,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function ComponentNode(type, attrs, children, index){
 	    "use strict";
-	    //component shall have 4 attributes: owner, children, tree, el
+	    //component shall have 4 attributes: owner, children, tree, el, attr, index;
 	    this.type = type;
 	    this.attrs = attrs;
 	    this.children = [];
@@ -1228,9 +1153,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.owner = owner;
 
 	        if(component.initialize){
-	            component.$silent = true;
 	            component.initialize(this.attrs);
-	            delete component.$silent;
+	            component.$dirty = true;
 	        }
 
 	        if(component.hasChanged){
@@ -1241,20 +1165,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        this.el = null;
 	        pushChildNodes(stack, parent, this.component, this.children, 'dst');
-	    },
-	    replace: function(stack, src, owner){
-	        "use strict";
-
-	        var  parent = src.el.parentNode, tree;
-
-	        pushChildNodes(stack, parent, owner, [src], 'src');
-
-	        this.create(stack, parent, owner);
-
-	        tree = this.children[0];
-
-	        tree.tenant = src;
-
 	    },
 	    destroy: function (stack, nodelete) {
 	        "use strict";
@@ -1280,9 +1190,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	        comp.set(this.attrs);
 	        this.el = src.el;
 	        this.children = src.children;
+	        this.inclusion = src.inclusion;
+	        comp.$dirty = true;
 	        this.owner = src.owner;
+
 	        src.component = null;
 	        src.owner = null;
+	        src.el = null;
 	    },
 	    update: function(){
 	        "use strict";
@@ -1301,6 +1215,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	                delete component.$updated;
 	                component.$dirty = false;
+	                component.$created = false;
 	                stack.push.apply(stack, component.$children);
 	            }catch(e){
 	                componentError(component, e);
@@ -1324,16 +1239,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	function componentError(component, e) {
 	    "use strict";
 	    var owner = component.$owner;
-	    console.log(e.stack);
+	    console.log(e.stack, component.name, owner.name);
 	    component.$tag.defective = true;
-	    disownComponent(component);
-
-	    nextTick(function(){
-	        owner.trigger("error", e);
-	    });
-	    if(component.$tree){
-	        patch(null, component.$tree);
-	    }
+	    owner.trigger("error", e);
+	    //should not delete as object is still a part of render tree
 	}
 
 
@@ -1365,7 +1274,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                src.component.$unmounted();
 	            }
 	            src.destroy(stack, item.action === CLEAN);
-	        }else if(!src || src.defective ){
+	        }else if(!src){
 	            try{
 	                dst.create(stack, parent, owner);
 	                if(dst.component){
@@ -1375,10 +1284,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	                componentError(dst.component, e);
 	            }
 	        }else if(src.type !== dst.type){
-	            // dst.replace(stack, src, owner);
-	            // if(dst.component){
-	            //     mounts.push(dst.component);
-	            // }
 	            pushChildNodes(stack, parent, owner, [dst], 'dst');
 	            pushChildNodes(stack, parent, owner, [src], 'src');
 	        }else{
@@ -1415,7 +1320,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var i, l = src.length, result = {}, child, key;
 	    for(i=0; i<l; i++){
 	        child = src[i];
-	        if(child.hasOwnProperty("key")){
+	        if(typeof child.key === 'number'){
 	            result[child.key] = child;
 	        }
 	    }
@@ -1445,7 +1350,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    l = dst.length;
 	    for(i=0; i<l; i++){
 	        dstChild = dst[i];
-	        if(dstChild.hasOwnProperty("key") && typeof dstChild.key === 'number'){
+	        if(typeof dstChild.key === 'number'){
 	            if(!childMap){
 	                childMap = getChildNodesMap(src);
 	            }
@@ -1484,7 +1389,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	rootComponent = new ComponentNode();
 	rootComponent.component = {$tag: rootComponent, $name: "_root", name: "_root"};
-
+	emitter.enhance(rootComponent.component);
 
 	function update(){
 	    "use strict";
@@ -1524,16 +1429,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	    "use strict";
 	    update();
 	    requestRunning = false;
+	    // if(requestPending){
+	    //     redraw();
+	    // }
 	}
 
 
 	function redraw(){
 	    "use strict";
 	    if(!requestRunning){
+	        requestPending = false;
 	        requestRunning = true;
-	        // updateUI();
 	        nextTick(updateUI);
+	    }else{
+	        requestPending = true;
 	    }
+
 	}
 
 
@@ -1843,6 +1754,148 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 
+
+/***/ },
+/* 5 */
+/***/ function(module, exports, __webpack_require__) {
+
+	
+	var utils = __webpack_require__(1);
+
+	function EmitterEvent(source, type, data){
+	    "use strict";
+	    this.source = source;
+	    this.type = type;
+	    this.data = data;
+	    this._propagate = true;
+	    this._default = true;
+	}
+
+	EmitterEvent.prototype = {
+	    constructor: EmitterEvent,
+	    isDefaultPrevented: function () {
+	        "use strict";
+	        return !this._default;
+	    },
+	    isPropagationStopped: function () {
+	        "use strict";
+	        return !this._propagate;
+	    },
+	    preventDefault: function () {
+	        "use strict";
+	        this._default = false;
+	    },
+	    stopPropagation: function () {
+	        "use strict";
+	        this._propagate = false;
+	    }
+	}
+
+	var Emitter = {
+	        on: function(name, callback){
+	        "use strict";
+	        var callbacks = this.$handlers;
+	        if(!callbacks){
+	            callbacks = this.$handlers = {};
+	        }
+	        if(!(name in callbacks)){
+	            callbacks[name] = [];
+	        }
+	        callbacks[name].push(callback);
+	        return this;
+	    },
+	    off: function(name, callback){
+	        "use strict";
+	        var argc = arguments.length, listeners = this.$handlers;
+	        if(!listeners || (name && !(name in listeners))){
+	            return;
+	        }
+	        if(argc === 0){
+	            this.$handlers = {};
+	        }else if(argc === 1){
+	            delete listeners[name];
+	        }else{
+	            utils.remove(listeners[name], callback);
+	        }
+	        return this;
+	    },
+	    trigger: function(name, data, defaultHandler, context){
+	        "use strict";
+	        var event = new EmitterEvent(this, name, data), component = this;
+	        while(component && component.$callHandlers){
+	            component.$callHandlers(event);
+	            if(event.isPropagationStopped()){
+	                break;
+	            }
+	            component = component.getParent ? component.getParent() : null;
+	        }
+	        if(defaultHandler && !event.isDefaultPrevented()){
+	            defaultHandler.call(context, event);
+	        }
+	        return event;
+	    },
+	    $callHandlers: function(event){
+	        "use strict";
+	        var listeners = this.$handlers, name = event.type;
+	        if(listeners && (name in listeners)){
+	            var i, items = listeners[name];
+	            for(i=0;i<items.length;i++){
+	                items[i].call(this.$owner, event);
+	            }
+	        }
+	    },
+	    listenTo: function(obj, name, callback){
+	        "use strict";
+	        var listeners = this.$monitors, self = this;
+	        if(utils.isString(callback)){
+	            callback = this[callback];
+	        }
+	        function callbackWrapper(){
+	            return callback.apply(self, arguments);
+	        }
+	        callbackWrapper.originalFunc = callback;
+	        if(!listeners){
+	            listeners = this.$monitors = [];
+	        }
+	        obj.on(name, callbackWrapper);
+	        listeners.push([obj, name, callbackWrapper]);
+	        return this;
+	    },
+	    stopListening: function(){
+	        "use strict";
+	        var listeners = this.$monitors, i = 0, item;
+	        if(listeners){
+	            for(i=0; i< listeners.length; i++){
+	                item = listeners[i];
+	                item[0].off(item[1], item[2]);
+	            }
+	            delete this.$monitors;
+	        }
+	        return this;
+	    }
+	};
+
+	module.exports = {
+	    Emitter: Emitter,
+	    enhance: function(target){
+	        "use strict";
+	        utils.assign(target, Emitter);
+	    }
+	};
+
+/***/ },
+/* 6 */
+/***/ function(module, exports) {
+
+	
+
+	var id = 2016, key = '$uruId';
+
+	module.exports = function (obj) {
+	    "use strict";
+	    obj[key] = ++id;
+	    return obj[key];
+	};
 
 /***/ }
 /******/ ])
