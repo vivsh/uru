@@ -3,7 +3,10 @@
 var utils = require("./utils"),
     Component = require("./component"),
     nodes = require("./nodes"),
-    dom = require("./dom");
+    dom = require("./dom"),
+    emitter = require("./emitter"),
+    uruId = require("./uruId");
+
 
 
 var components = {}, uruStarted = false, directives = {};
@@ -163,6 +166,7 @@ uru.mount = function(){
     nodes.render(function(){
         mount.apply(null, args);
     });
+    return args[0];
 };
 
 uru.unmount = function(){
@@ -224,6 +228,12 @@ uru.dom = dom;
 uru.utils = utils;
 
 uru.Component = Component;
+
+uru.emitter = emitter;
+
+uru.id = uruId;
+
+emitter.enhance(uru);
 
 module.exports = uru;
 

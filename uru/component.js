@@ -1,20 +1,20 @@
 
 
 var utils = require("./utils"),
-    nodes = require("./nodes");
+    nodes = require("./nodes"),
+    emitter = require("./emitter");
 
 
 function Component(attrs){
     "use strict";
+    //can't call initialize from here as ownComponent should always be called from here.
     attrs = utils.merge({}, this.context, attrs);
     this.$events = {};
     this.context = {}
     this.$dirty = true;
     this.set(attrs, true);
-    // if (this.initialize) {
-    //     this.initialize.apply(this, arguments);
-    // }
     this.$dirty = false;
+    this.$created = true;
 }
 
 
@@ -29,11 +29,18 @@ Component.prototype = {
         if (this.getContext){
             var changes = this.getContext(this.context);
             if(changes){
-                this.set(changes, true);
+                this.set(changes);
             }
             return this.$dirty;
         }
+        if(this.$created){
+            return this.$dirty;
+        }
         return true;
+    },
+    getParent: function () {
+        "use strict";
+        return this.$owner;
     },
     set: function(values, silent){
         "use strict";
@@ -55,120 +62,29 @@ Component.prototype = {
                             events[eventName] = value;
                         }
                     }
-                    else if(typeof value === 'object' && !Object.isFrozen(value)){
-                        dirty = true;
-                        state[key] = value;
-                    }else if (value !== initial) {
+                    else if (value !== initial) {
                         state[key] = value;
                         changes[key] = {current: value, previous: initial};
                         dirty = true;
+                    }else if(typeof value === 'object' && !Object.isFrozen(value)){
+                        dirty = true;
+                        state[key] = value;
                     }
                 }
             }
         }
-        if(dirty && !silent && !this.$silent){
-            // for(var k in changes){
-            //     if(changes.hasOwnProperty(k)){
-            //         this.on("change:"+k, changes[k]);
-            //     }
-            // }
-            // this.on("change", changes);
-            nodes.redraw();
+        if(dirty && !silent){
+            for(var k in changes){
+                if(changes.hasOwnProperty(k)){
+                    this.on("change:"+k, changes[k]);
+                }
+            }
+            this.on("change", changes);
+            this.$created = false;
         }
         if(dirty) {
             this.$dirty = dirty;
         }
-    },
-    on: function(name, callback){
-        "use strict";
-        var callbacks = this.$handlers;
-        if(!callbacks){
-            callbacks = this.$handlers = {};
-        }
-        if(!(name in callbacks)){
-            callbacks[name] = [];
-        }
-        callbacks[name].push(callback);
-        return this;
-    },
-    off: function(name, callback){
-        "use strict";
-        var argc = arguments.length, listeners = this.$handlers;
-        if(!listeners || (name && !(name in listeners))){
-            return;
-        }
-        if(argc === 0){
-            this.$handlers = {};
-        }else if(argc === 1){
-            delete listeners[name];
-        }else{
-            utils.remove(listeners[name], callback);
-        }
-        return this;
-    },
-    trigger: function(name, data, nobubble){
-        "use strict";
-        var event = {type: name, data: data, target: this, propagate: !nobubble}, component = this;
-        while(component && component.$callHandlers){
-            component.$callHandlers(event);
-            if(!event.propagate){
-                break;
-            }
-            component = component.$owner;
-        }
-        return this;
-    },
-    listenTo: function(obj, name, callback){
-        "use strict";
-        var listeners = this.$monitors, self = this;
-        if(utils.isString(callback)){
-            callback = this[callback];
-        }
-        function callbackWrapper(){
-            return callback.apply(self, arguments);
-        }
-        callbackWrapper.originalFunc = callback;
-        if(!listeners){
-            listeners = this.$monitors = [];
-        }
-        obj.on(name, callbackWrapper);
-        listeners.push([obj, name, callbackWrapper]);
-        return this;
-    },
-    stopListening: function(){
-        "use strict";
-        var listeners = this.$monitors, i = 0, item;
-        if(listeners){
-            for(i=0; i< listeners.length; i++){
-                item = listeners[i];
-                item[0].off(item[1], item[2]);
-            }
-            delete this.$monitors;
-        }
-        return this;
-    },
-    $callHandlers: function(event){
-        "use strict";
-        var listeners = this.$handlers, name = event.type;
-        if(listeners && (name in listeners)){
-            var i, items = listeners[name];
-            for(i=0;i<items.length;i++){
-                items[i].call(this.$owner, event);
-            }
-        }
-    },
-    $render: function(content){
-        "use strict";
-        var tree;
-        try{
-            if(!this.$tree || this.hasChanged()){
-                tree = this.render(this.context);
-            }
-        }catch (e){
-            this.trigger("error", e);
-            throw e;
-        }
-        return tree;
     },
     $mounted: function () {
         "use strict";
@@ -199,5 +115,6 @@ Component.prototype = {
 
 Component.extend = utils.extend;
 
+emitter.enhance(Component.prototype);
 
 module.exports = Component;

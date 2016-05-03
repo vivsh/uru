@@ -55,7 +55,10 @@ var extend = function ClassFactory(options) {
     mixins.unshift(proto);
     assign.apply(null, mixins);
     assign(subclass, statics);
-    subclass.extend = extend;
+    if(subclass.initialize){
+        subclass.initialize();
+    }
+    subclass.extend = this.extend;
     return subclass;
 };
 
@@ -208,6 +211,20 @@ function debounce(func, wait, immediate) {
 	};
 }
 
+function property(object, name){
+    "use strict";
+    var getterName = "get" + name.charAt(0) + name.substring(1),
+        setterName = "set" + name.charAt(0) + name.substring(1);
+    var options = {};
+    if(typeof object[getterName] === 'function'){
+        options.get = function(){ return this[getterName](); };
+    }
+    if(typeof object[setterName] === 'function'){
+        options.set = function(){ return this[getterName](); };
+    }
+    Object.defineProperty(object, name, options);
+}
+
 module.exports = {
     isArray: isArray,
     isString: isString,
@@ -225,5 +242,6 @@ module.exports = {
     isExternalUrl: isExternalUrl,
     buildQuery: buildQuery,
     pathname: pathname,
-    debounce: debounce
+    debounce: debounce,
+    property: property
 };

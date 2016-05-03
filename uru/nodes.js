@@ -1,11 +1,12 @@
 
 var utils = require("./utils"),
-    dom = require("./dom");
+    dom = require("./dom"),
+    emitter = require("./emitter");
+
 
 var nextTick;
 
-
-var requestRunning = false;
+var requestRunning = false, requestPending = false;
 
 if(typeof window === 'object'){
     nextTick = window.requestAnimationFrame || window.setTimeout;
@@ -234,15 +235,9 @@ function domAdopt(node, parent, before, replace){
         before = parent.childNodes[before];
     }
     if(before){
-        if(replace){
-            applyHook(parent.hook, "enter", el, function(){
-                parent.replaceChild(el, before);
-            });
-        }else{
-            applyHook(parent.hook, "enter", el, function(){
-                parent.insertBefore(el, before);
-            });
-        }
+        applyHook(parent.hook, "enter", el, function(){
+            parent.insertBefore(el, before);
+        });
     }else{
         applyHook(parent.hook, "enter", el, function(){
             parent.appendChild(el);
@@ -289,13 +284,6 @@ DomNode.prototype = {
     constructor: DomNode,
     create: function(stack, parent, owner){
         "use strict";
-        var src = this.tenant, before, replace;
-
-        if(src){
-            before = src.el;
-            replace = true;
-        }
-
         var el, isText = this.type === TEXT_TYPE;
 
         if(isText){
@@ -308,13 +296,9 @@ DomNode.prototype = {
         this.el = el;
         this.owner = owner;
 
-        domAdopt(this, parent, before, replace);
+        domAdopt(this, parent);
 
         delete this.tenant;
-
-        if(src && this.index !== src.index){
-            this.reorder(src);
-        }
 
         if(owner && owner.$tree === this){
             owner.$tag.setEl(this);
@@ -326,13 +310,6 @@ DomNode.prototype = {
             pushChildNodes(stack, this.el, this.owner, this.children, 'dst');
         }
     },
-    replace: function (stack, src, owner) {
-        "use strict";
-        var el = src.component ? src.component.el : src.el, parent = el.parentNode;
-        this.tenant = src;
-        pushChildNodes(stack, parent, owner, [src], 'src', CLEAN);
-        this.create(stack, parent, owner);
-    },
     destroy: function(stack, nodelete) {
         "use strict";
         var isText = this.type === TEXT_TYPE, owner = this.owner, el = this.el;
@@ -340,13 +317,12 @@ DomNode.prototype = {
             pushChildNodes(stack, this.el, this.owner, this.children, 'src', CLEAN);
         }
 
-        if(!nodelete && el.parentNode){
+        if(!nodelete){
             domRemove(this);
         }
-        //check
-        if(this.el) {
-            domClean(this);
-        }
+
+        domClean(this);
+
         this.owner.$updated = true;
         this.el = null;
         this.owner = null;
@@ -378,10 +354,13 @@ DomNode.prototype = {
         if(this.index !== src.index){
             this.reorder(src);
         }
-        src.el = null;
+
         if(!isText){
             patchChildNodes(stack, this.el, src.owner, src.children, this.children);
         }
+
+        src.owner = null;
+        src.el = null;
     },
     reorder: function(src){
         "use strict";
@@ -413,6 +392,7 @@ function disownComponent(child){
     for(i=0; i<l; i++){
         if(children[i] === child){
             children.splice(i,1);
+            return;
         }
     }
 }
@@ -436,9 +416,9 @@ function clone(node){
                 attrs = utils.merge({}, item.attrs);
                 container = [];
                 child = new item.constructor(item.type, attrs, container, item.index);
-                if(item.hasOwnProperty('key')){
-                    child.key = item.key;
-                }
+            }
+            if(typeof item.key === 'number'){
+                child.key = item.key;
             }
             obj.container.unshift(child);
         }
@@ -453,7 +433,7 @@ function clone(node){
 
 function ComponentNode(type, attrs, children, index){
     "use strict";
-    //component shall have 4 attributes: owner, children, tree, el
+    //component shall have 4 attributes: owner, children, tree, el, attr, index;
     this.type = type;
     this.attrs = attrs;
     this.children = [];
@@ -493,9 +473,8 @@ ComponentNode.prototype = {
         this.owner = owner;
 
         if(component.initialize){
-            component.$silent = true;
             component.initialize(this.attrs);
-            delete component.$silent;
+            component.$dirty = true;
         }
 
         if(component.hasChanged){
@@ -506,20 +485,6 @@ ComponentNode.prototype = {
 
         this.el = null;
         pushChildNodes(stack, parent, this.component, this.children, 'dst');
-    },
-    replace: function(stack, src, owner){
-        "use strict";
-
-        var  parent = src.el.parentNode, tree;
-
-        pushChildNodes(stack, parent, owner, [src], 'src');
-
-        this.create(stack, parent, owner);
-
-        tree = this.children[0];
-
-        tree.tenant = src;
-
     },
     destroy: function (stack, nodelete) {
         "use strict";
@@ -545,9 +510,13 @@ ComponentNode.prototype = {
         comp.set(this.attrs);
         this.el = src.el;
         this.children = src.children;
+        this.inclusion = src.inclusion;
+        comp.$dirty = true;
         this.owner = src.owner;
+
         src.component = null;
         src.owner = null;
+        src.el = null;
     },
     update: function(){
         "use strict";
@@ -566,6 +535,7 @@ ComponentNode.prototype = {
                 }
                 delete component.$updated;
                 component.$dirty = false;
+                component.$created = false;
                 stack.push.apply(stack, component.$children);
             }catch(e){
                 componentError(component, e);
@@ -589,16 +559,10 @@ ComponentNode.prototype = {
 function componentError(component, e) {
     "use strict";
     var owner = component.$owner;
-    console.log(e.stack);
+    console.log(e.stack, component.name, owner.name);
     component.$tag.defective = true;
-    disownComponent(component);
-
-    nextTick(function(){
-        owner.trigger("error", e);
-    });
-    if(component.$tree){
-        patch(null, component.$tree);
-    }
+    owner.trigger("error", e);
+    //should not delete as object is still a part of render tree
 }
 
 
@@ -630,7 +594,7 @@ function patch(target, current, rootElement, before){
                 src.component.$unmounted();
             }
             src.destroy(stack, item.action === CLEAN);
-        }else if(!src || src.defective ){
+        }else if(!src){
             try{
                 dst.create(stack, parent, owner);
                 if(dst.component){
@@ -640,10 +604,6 @@ function patch(target, current, rootElement, before){
                 componentError(dst.component, e);
             }
         }else if(src.type !== dst.type){
-            // dst.replace(stack, src, owner);
-            // if(dst.component){
-            //     mounts.push(dst.component);
-            // }
             pushChildNodes(stack, parent, owner, [dst], 'dst');
             pushChildNodes(stack, parent, owner, [src], 'src');
         }else{
@@ -680,7 +640,7 @@ function getChildNodesMap(src){
     var i, l = src.length, result = {}, child, key;
     for(i=0; i<l; i++){
         child = src[i];
-        if(child.hasOwnProperty("key")){
+        if(typeof child.key === 'number'){
             result[child.key] = child;
         }
     }
@@ -710,7 +670,7 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
     l = dst.length;
     for(i=0; i<l; i++){
         dstChild = dst[i];
-        if(dstChild.hasOwnProperty("key") && typeof dstChild.key === 'number'){
+        if(typeof dstChild.key === 'number'){
             if(!childMap){
                 childMap = getChildNodesMap(src);
             }
@@ -749,7 +709,7 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
 
 rootComponent = new ComponentNode();
 rootComponent.component = {$tag: rootComponent, $name: "_root", name: "_root"};
-
+emitter.enhance(rootComponent.component);
 
 function update(){
     "use strict";
@@ -789,16 +749,22 @@ function updateUI(){
     "use strict";
     update();
     requestRunning = false;
+    // if(requestPending){
+    //     redraw();
+    // }
 }
 
 
 function redraw(){
     "use strict";
     if(!requestRunning){
+        requestPending = false;
         requestRunning = true;
-        // updateUI();
         nextTick(updateUI);
+    }else{
+        requestPending = true;
     }
+
 }
 
 
