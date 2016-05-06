@@ -211,19 +211,64 @@ function debounce(func, wait, immediate) {
 	};
 }
 
-function property(object, name){
+
+function isEqual(first, second){
     "use strict";
-    var getterName = "get" + name.charAt(0) + name.substring(1),
-        setterName = "set" + name.charAt(0) + name.substring(1);
-    var options = {};
-    if(typeof object[getterName] === 'function'){
-        options.get = function(){ return this[getterName](); };
+    var stack = [{a: first, b: second}], typeA, typeB, a , b, item, i, k, v, history, l;
+    if(first === second){
+        return true;
     }
-    if(typeof object[setterName] === 'function'){
-        options.set = function(){ return this[getterName](); };
+    while(stack.length){
+        item = stack.shift();
+        a = item.a;
+        b = item.b;
+        typeA = typeof item.a;
+        typeB = typeof item.b;
+        if(a===b){
+
+        }else if(typeA !== typeB){
+            return false;
+        }else if(typeA !== 'object'){
+            return false;
+        }else if(a == null || b == null){//jshint ignore:line
+            return false;
+        }else if(a.constructor !== b.constructor){
+            return false;
+        }else if(Object.isFrozen(a) || Object.isFrozen(b)){
+            return false;
+        }else if(Object.prototype.toString.call(a) === '[object Array]'){
+            l = Math.max(a.length, b.length);
+            for(i=0; i< l; i++){
+                stack.push({
+                    a: a[i],
+                    b: b[i]
+                });
+            }
+        }else{
+            history = {};
+            for(k in a){
+                if(a.hasOwnProperty(k)){
+                    stack.push({
+                        a: a[k],
+                        b: b[k]
+                    })
+                    history[k] = 1;
+                }
+            }
+            for(k in b){
+                if(b.hasOwnProperty(k) && !(k in history)){
+                    stack.push({
+                        a: a[k],
+                        b: b[k]
+                    });
+                }
+            }
+        }
     }
-    Object.defineProperty(object, name, options);
+    return true;
 }
+
+
 
 module.exports = {
     isArray: isArray,
@@ -243,5 +288,5 @@ module.exports = {
     buildQuery: buildQuery,
     pathname: pathname,
     debounce: debounce,
-    property: property
+    isEqual: isEqual
 };

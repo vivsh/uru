@@ -520,22 +520,23 @@ ComponentNode.prototype = {
     },
     update: function(){
         "use strict";
+        var drawId = updateId;
         var stack = [this.component], content, component, tree, i, l;
         while(stack.length){
             tree = null;
             component = stack.pop();
             try {
-                if (component.hasChanged && component.hasChanged()) {
+                if (component.$lastUpdate !== drawId && component.hasChanged && component.hasChanged()) {
                     tree = component.$tree;
                     content = component.$tag.render();
                     patch(content, tree);
                     if (component.$updated && component.onUpdate) {
                         component.onUpdate();
                     }
+                    component.$lastUpdate = drawId;
                 }
                 delete component.$updated;
                 component.$dirty = false;
-                component.$created = false;
                 stack.push.apply(stack, component.$children);
             }catch(e){
                 componentError(component, e);
@@ -735,16 +736,6 @@ function getHook(name){
     "use strict";
 }
 
-function hook(name, handler){
-    "use strict";
-    if(arguments.length < 2){
-        return getHook(name);
-    }else{
-        setHook(name, handler);
-        return getHook(name);
-    }
-}
-
 function updateUI(){
     "use strict";
     update();
@@ -755,16 +746,19 @@ function updateUI(){
 }
 
 
-function redraw(){
+function redraw(later){
     "use strict";
-    if(!requestRunning){
-        requestPending = false;
-        requestRunning = true;
-        nextTick(updateUI);
-    }else{
+    if(later){
         requestPending = true;
+    }else{
+        if(!requestRunning){
+            requestRunning = true;
+            nextTick(updateUI);
+        }else{
+            // var error = new Error("Recursion during redraw should be avoided");
+            // console.log(error);
+        }
     }
-
 }
 
 

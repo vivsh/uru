@@ -236,7 +236,3 @@ uru.id = uruId;
 emitter.enhance(uru);
 
 module.exports = uru;
-
-if(window){
-    runUru();
-}

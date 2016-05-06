@@ -33,9 +33,6 @@ Component.prototype = {
             }
             return this.$dirty;
         }
-        if(this.$created){
-            return this.$dirty;
-        }
         return true;
     },
     getParent: function () {
@@ -45,7 +42,7 @@ Component.prototype = {
     set: function(values, silent){
         "use strict";
         var key, value, initial, state = this.context, dirty = false,
-            events = this.$events, eventName, changes = {};
+            events = this.$events, eventName, changes = {}, changeCount = 0;
         if(values) {
             for (key in values) {
                 if (values.hasOwnProperty(key)) {
@@ -62,24 +59,24 @@ Component.prototype = {
                             events[eventName] = value;
                         }
                     }
-                    else if (value !== initial) {
+                    else if (value !== initial && !utils.isEqual(value, initial)) {
                         state[key] = value;
                         changes[key] = {current: value, previous: initial};
                         dirty = true;
-                    }else if(typeof value === 'object' && !Object.isFrozen(value)){
-                        dirty = true;
-                        state[key] = value;
+                        changeCount ++;
                     }
                 }
             }
         }
         if(dirty && !silent){
-            for(var k in changes){
-                if(changes.hasOwnProperty(k)){
-                    this.on("change:"+k, changes[k]);
+            if(changeCount) {
+                for (var k in changes) {
+                    if (changes.hasOwnProperty(k)) {
+                        this.trigger("change:" + k, changes[k]);
+                    }
                 }
             }
-            this.on("change", changes);
+            this.trigger("change", changes);
             this.$created = false;
         }
         if(dirty) {
