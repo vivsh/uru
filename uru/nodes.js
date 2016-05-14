@@ -559,8 +559,8 @@ ComponentNode.prototype = {
 
 function componentError(component, e) {
     "use strict";
+    console.log(e.stack);
     var owner = component.$owner;
-    console.log(e.stack, component.name, owner.name);
     component.$tag.defective = true;
     owner.trigger("error", e);
     //should not delete as object is still a part of render tree
@@ -740,17 +740,18 @@ function updateUI(){
     "use strict";
     update();
     requestRunning = false;
-    // if(requestPending){
-    //     redraw();
-    // }
+    if(requestPending){
+        redraw();
+    }
 }
 
 
 function redraw(later){
     "use strict";
-    if(later){
+    if(later===true){
         requestPending = true;
     }else{
+        requestPending = false;
         if(!requestRunning){
             requestRunning = true;
             nextTick(updateUI);

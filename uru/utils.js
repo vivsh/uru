@@ -51,16 +51,74 @@ var extend = function ClassFactory(options) {
     proto.$super = prototype;
     var mixins = take(options, "mixins", []);
     var statics = take(options, "statics");
-    mixins.push(options);
-    mixins.unshift(proto);
-    assign.apply(null, mixins);
-    assign(subclass, statics);
+    mixins.unshift(options);
+    wrapMixinMethods(proto, mixins);
+    assign(subclass, owner, statics);
     if(subclass.initialize){
         subclass.initialize();
     }
     subclass.extend = this.extend;
     return subclass;
 };
+
+
+function methodWrapper(funcs){
+    "use strict";
+    if(funcs.length === 1){
+        return funcs[0];
+    }
+    return function(){
+        var i=0, result;
+        for(i=0; i<funcs.length; i++){
+            funcs[i].result = result;
+            result = funcs[i].apply(this, arguments);
+        }
+        return result;
+    };
+}
+
+
+function wrapMixinMethods(prototype, others) {
+    "use strict";
+    var key, value, obj, funcMap = {}, initial;
+    var mixins = others, i, funcs;
+    for(i=0;i<mixins.length;i++){
+        funcs = [];
+        obj = mixins[i];
+        for(key in obj){
+            if(obj.hasOwnProperty(key) && key !== 'constructor'){
+                value = obj[key];
+                initial = prototype[key];
+                if(initial === value){
+                    continue;
+                }
+                if(1) {//jshint ignore: line
+                    if (typeof value === 'function') {
+                        if (!funcMap.hasOwnProperty(key)) {
+                            funcMap[key] = [value];
+                        } else {
+                            funcMap[key].push(value);
+                        }
+                    // } else if (isArray(value)) {
+                    //     prototype[key] = initial ? initial.concat(value): value.slice(0);
+                    // } else if (isPlainObject(value)){
+                    //     prototype[key] = assign({}, initial, value);
+                    }else {
+                        prototype[key] = value;
+                    }
+                }else{
+                    prototype[key] = value;
+                }
+            }
+        }
+    }
+    for(key in funcMap){
+        if(funcMap.hasOwnProperty(key)){
+            value = funcMap[key];
+            prototype[key] = methodWrapper(value);
+        }
+    }
+}
 
 function Class(options){
     "use strict";
