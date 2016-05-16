@@ -467,6 +467,7 @@ ComponentNode.prototype = {
     create: function(stack, parent, owner){
         "use strict";
         var component = this.component = new this.type(this.attrs);
+        // this.parent = parent;
         ownComponent(owner, component);
         component.$tag = this;
         component.$lastUpdate = updateId;
@@ -484,7 +485,15 @@ ComponentNode.prototype = {
         this.render();
 
         this.el = null;
+        // parent = document.createDocumentFragment();
         pushChildNodes(stack, parent, this.component, this.children, 'dst');
+    },
+    mount: function () {
+        "use strict";
+        // var parent = this.parent, before = parent.childNodes[this.index];
+        // console.log("Element", this.el, "Parent", parent, "Before", before);
+        // parent.insertBefore(this.el.parentNode, before);
+        // delete this.parent;
     },
     destroy: function (stack, nodelete) {
         "use strict";
@@ -510,7 +519,7 @@ ComponentNode.prototype = {
         comp.set(this.attrs);
         this.el = src.el;
         this.children = src.children;
-        this.inclusion = src.inclusion;
+        //inclusion should not be copied here. This way only fresh content is rendered.
         comp.$dirty = true;
         this.owner = src.owner;
 
@@ -624,6 +633,7 @@ function patch(target, current, rootElement, before){
 
     for(i=mounts.length-1; i>=0; i--){
         child = mounts[i];
+        // child.$tag.mount();
         child.$mounted();
     }
 
