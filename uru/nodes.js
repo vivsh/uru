@@ -134,15 +134,13 @@ function domAddEvent(node, el, eventName, callback) {
         name = domAddActionEventName(el);
     }
     if(eventName in events){
-        domClean(node, el, eventName);
+        domClean(node, eventName);
     }
     if(callback){
         var func = function (event) {
             event = dom.normalizeEvent(event);
             callback.call(node.owner, event);
-            if(eventName === 'action'){
-                redraw();
-            }
+            redraw();
         };
         events[eventName] = func;
         el.addEventListener(name, func, false);
@@ -152,10 +150,10 @@ function domAddEvent(node, el, eventName, callback) {
 function domClean(node, eventName) {
     "use strict";
     var el=node.el, events = domData(el).events, func, name = eventName;
-    if(arguments.length < 3){
+    if(arguments.length < 2){
         for(name in events){
             if(events.hasOwnProperty(name)){
-                domClean(node, el, name);
+                domClean(node, name);
             }
         }
     }else{
