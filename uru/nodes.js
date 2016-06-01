@@ -180,14 +180,14 @@ function domAttributes(node, values) {
     var el = node.el;
     var key, value, type;
     var properties = {
-        hook: 1,
         className: 1,
         checked:1,
         selected:1,
         disabled:1,
         readonly:1,
         innerHTML:1,
-        innerText:1
+        innerText:1,
+        value:1
     };
     var events = [];
     for (key in values) {
@@ -414,6 +414,9 @@ function clone(node){
                 attrs = utils.merge({}, item.attrs);
                 container = [];
                 child = new item.constructor(item.type, attrs, container, item.index);
+                if(item.inclusion){
+                    child.inclusion = item.inclusion;
+                }
             }
             if(typeof item.key === 'number'){
                 child.key = item.key;
@@ -734,14 +737,20 @@ function mount(node, element, before){
     return node;
 }
 
-
-function setHook(name, handler){
+function stringify(node){
     "use strict";
-}
-
-
-function getHook(name){
-    "use strict";
+    var stack = [node], result = [], item;
+    while(stack.length){
+        item = stack.pop();
+        if(utils.isString(item)){
+            result.push(item);
+        }else{
+            result.push(item.startTag());
+            stack.push(item.endTag());
+            stack.push.apply(stack, item.children);
+        }
+    }
+    return result.join("");
 }
 
 function updateUI(){

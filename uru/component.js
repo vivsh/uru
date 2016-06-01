@@ -48,7 +48,7 @@ Component.prototype = {
                 if (values.hasOwnProperty(key)) {
                     value = values[key];
                     initial = state[key];
-                    if(0 && key.substr(0, 2) === 'on'){
+                    if(key.substr(0, 2) === 'on'){
                         eventName = key.substr(2);
                         if(eventName in events){
                             this.off(eventName, value);
@@ -65,6 +65,11 @@ Component.prototype = {
                         dirty = true;
                         changeCount ++;
                     }
+                }
+            }
+            for(key in events){
+                if(events.hasOwnProperty(key) && !(("on" + key) in values)){
+                    this.off(key);
                 }
             }
         }
