@@ -60,8 +60,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    Component = __webpack_require__(2),
 	    nodes = __webpack_require__(3),
 	    dom = __webpack_require__(4),
-	    emitter = __webpack_require__(5),
-	    uruId = __webpack_require__(6);
+	    emitter = __webpack_require__(5);
 
 
 
@@ -120,7 +119,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	            stack.unshift.apply(stack, item);
 	        }else if(item != null){ //jshint ignore:line
 	            if(!(item instanceof nodes.DomNode) && !(item instanceof nodes.ComponentNode)){
-	                item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
+	                if(typeof item === 'object' && typeof item.render === 'function'){
+	                    item = item.render();
+	                    stack.unshift(item);
+	                    continue;
+	                }else{
+	                    item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
+	                }
 	            }
 	            children.push(item);
 	            item.index = i;
@@ -275,8 +280,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	uru.redraw = nodes.redraw;
 
-	uru.queue = nodes.Queue;
-
 	uru.nextTick = nodes.nextTick;
 
 	uru.dom = dom;
@@ -287,15 +290,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	uru.emitter = emitter;
 
-	uru.id = uruId;
-
 	emitter.enhance(uru);
 
 	module.exports = uru;
 
-	if(window){
-	    runUru();
-	}
 
 /***/ },
 /* 1 */
@@ -354,16 +352,74 @@ return /******/ (function(modules) { // webpackBootstrap
 	    proto.$super = prototype;
 	    var mixins = take(options, "mixins", []);
 	    var statics = take(options, "statics");
-	    mixins.push(options);
-	    mixins.unshift(proto);
-	    assign.apply(null, mixins);
-	    assign(subclass, statics);
+	    mixins.unshift(options);
+	    wrapMixinMethods(proto, mixins);
+	    assign(subclass, owner, statics);
 	    if(subclass.initialize){
 	        subclass.initialize();
 	    }
 	    subclass.extend = this.extend;
 	    return subclass;
 	};
+
+
+	function methodWrapper(funcs){
+	    "use strict";
+	    if(funcs.length === 1){
+	        return funcs[0];
+	    }
+	    return function(){
+	        var i=0, result;
+	        for(i=0; i<funcs.length; i++){
+	            funcs[i].result = result;
+	            result = funcs[i].apply(this, arguments);
+	        }
+	        return result;
+	    };
+	}
+
+
+	function wrapMixinMethods(prototype, others) {
+	    "use strict";
+	    var key, value, obj, funcMap = {}, initial;
+	    var mixins = others, i, funcs;
+	    for(i=0;i<mixins.length;i++){
+	        funcs = [];
+	        obj = mixins[i];
+	        for(key in obj){
+	            if(obj.hasOwnProperty(key) && key !== 'constructor'){
+	                value = obj[key];
+	                initial = prototype[key];
+	                if(initial === value){
+	                    continue;
+	                }
+	                if(1) {//jshint ignore: line
+	                    if (typeof value === 'function') {
+	                        if (!funcMap.hasOwnProperty(key)) {
+	                            funcMap[key] = [value];
+	                        } else {
+	                            funcMap[key].push(value);
+	                        }
+	                    // } else if (isArray(value)) {
+	                    //     prototype[key] = initial ? initial.concat(value): value.slice(0);
+	                    // } else if (isPlainObject(value)){
+	                    //     prototype[key] = assign({}, initial, value);
+	                    }else {
+	                        prototype[key] = value;
+	                    }
+	                }else{
+	                    prototype[key] = value;
+	                }
+	            }
+	        }
+	    }
+	    for(key in funcMap){
+	        if(funcMap.hasOwnProperty(key)){
+	            value = funcMap[key];
+	            prototype[key] = methodWrapper(value);
+	        }
+	    }
+	}
 
 	function Class(options){
 	    "use strict";
@@ -408,7 +464,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 
-	function diffAttr(src, dst) {
+	function objectDiff(src, dst) {
 	    "use strict";
 	    var item, changeKey, changes = {}, key, value, target,
 	        stack = [{src: src, dst: dst, reverse: false}, {src: dst, dst: src}], total = 0;
@@ -514,19 +570,80 @@ return /******/ (function(modules) { // webpackBootstrap
 		};
 	}
 
-	function property(object, name){
+
+	function isEqual(first, second){
 	    "use strict";
-	    var getterName = "get" + name.charAt(0) + name.substring(1),
-	        setterName = "set" + name.charAt(0) + name.substring(1);
-	    var options = {};
-	    if(typeof object[getterName] === 'function'){
-	        options.get = function(){ return this[getterName](); };
+	    var stack = [{a: first, b: second}], typeA, typeB, a , b, item, i, k, v, history, l;
+	    if(first === second){
+	        return true;
 	    }
-	    if(typeof object[setterName] === 'function'){
-	        options.set = function(){ return this[getterName](); };
+	    while(stack.length){
+	        item = stack.shift();
+	        a = item.a;
+	        b = item.b;
+	        typeA = typeof item.a;
+	        typeB = typeof item.b;
+	        if(a===b){
+
+	        }else if(typeA !== typeB){
+	            return false;
+	        }else if(typeA !== 'object'){
+	            return false;
+	        }else if(a == null || b == null){//jshint ignore:line
+	            return false;
+	        }else if(a.constructor !== b.constructor){
+	            return false;
+	        }else if(Object.isFrozen(a) || Object.isFrozen(b)){
+	            return false;
+	        }else if(Object.prototype.toString.call(a) === '[object Array]'){
+	            l = Math.max(a.length, b.length);
+	            for(i=0; i< l; i++){
+	                stack.push({
+	                    a: a[i],
+	                    b: b[i]
+	                });
+	            }
+	        }else{
+	            history = {};
+	            for(k in a){
+	                if(a.hasOwnProperty(k)){
+	                    stack.push({
+	                        a: a[k],
+	                        b: b[k]
+	                    })
+	                    history[k] = 1;
+	                }
+	            }
+	            for(k in b){
+	                if(b.hasOwnProperty(k) && !(k in history)){
+	                    stack.push({
+	                        a: a[k],
+	                        b: b[k]
+	                    });
+	                }
+	            }
+	        }
 	    }
-	    Object.defineProperty(object, name, options);
+	    return true;
 	}
+
+
+	function objectReact(source, target, callback, ctx){
+	    "use strict";
+	    var changes = objectDiff(source, target), key, value, hookKey, hookValue;
+	    if(changes === false){
+	        return;
+	    }
+	    changes = changes.changes;
+	    for(key in changes){
+	        if(changes.hasOwnProperty(key)){
+	            value = changes[key];
+	            callback.call(ctx, key, value, value!==undefined);
+	        }
+	    }
+	}
+
+
 
 	module.exports = {
 	    isArray: isArray,
@@ -537,7 +654,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    extend: extend,
 	    remove: remove,
 	    merge: assign,
-	    diffAttr: diffAttr,
+	    diffAttr: objectDiff,
+	    objectDiff: objectDiff,
+	    objectReact: objectReact,
 	    take: take,
 	    Class: Class,
 	    assign: assign,
@@ -546,8 +665,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    buildQuery: buildQuery,
 	    pathname: pathname,
 	    debounce: debounce,
-	    property: property
+	    isEqual: isEqual
 	};
+
+
 
 /***/ },
 /* 2 */
@@ -565,9 +686,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    //can't call initialize from here as ownComponent should always be called from here.
 	    attrs = utils.merge({}, this.context, attrs);
 	    this.$events = {};
-	    this.context = {}
+	    this.context = {};
 	    this.$dirty = true;
-	    this.set(attrs, true);
+	    this.set(attrs, true); //initialize is called after this. Since, no event can be bound prior to that, there's no point in
+	    //triggering events here.
 	    this.$dirty = false;
 	    this.$created = true;
 	}
@@ -588,9 +710,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	            return this.$dirty;
 	        }
-	        if(this.$created){
-	            return this.$dirty;
-	        }
 	        return true;
 	    },
 	    getParent: function () {
@@ -600,13 +719,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    set: function(values, silent){
 	        "use strict";
 	        var key, value, initial, state = this.context, dirty = false,
-	            events = this.$events, eventName, changes = {};
+	            events = this.$events, eventName, changes = {}, changeCount = 0;
 	        if(values) {
 	            for (key in values) {
 	                if (values.hasOwnProperty(key)) {
 	                    value = values[key];
 	                    initial = state[key];
-	                    if(false){
+	                    if(key.substr(0, 2) === 'on'){
 	                        eventName = key.substr(2);
 	                        if(eventName in events){
 	                            this.off(eventName, value);
@@ -617,24 +736,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	                            events[eventName] = value;
 	                        }
 	                    }
-	                    else if (value !== initial) {
+	                    else if (value !== initial && !utils.isEqual(value, initial)) {
 	                        state[key] = value;
 	                        changes[key] = {current: value, previous: initial};
 	                        dirty = true;
-	                    }else if(typeof value === 'object' && !Object.isFrozen(value)){
-	                        dirty = true;
-	                        state[key] = value;
+	                        changeCount ++;
 	                    }
+	                }
+	            }
+	            for(key in events){
+	                if(events.hasOwnProperty(key) && !(("on" + key) in values)){
+	                    this.off(key);
 	                }
 	            }
 	        }
 	        if(dirty && !silent){
-	            for(var k in changes){
-	                if(changes.hasOwnProperty(k)){
-	                    this.on("change:"+k, changes[k]);
+	            if(changeCount) {
+	                for (var k in changes) {
+	                    if (changes.hasOwnProperty(k)) {
+	                        this.trigger("change:" + k, changes[k]);
+	                    }
 	                }
 	            }
-	            this.on("change", changes);
+	            this.trigger("change", changes);
 	            this.$created = false;
 	        }
 	        if(dirty) {
@@ -705,6 +829,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var domHooks = {};
 
+	var pluginRegistry = [];
+
 	var DOM_PROPERTIES = ['innerText', 'innerHTML', 'value', 'checked', 'selected', 'selectedIndex',
 	        'disabled', 'readonly', 'className', 'style'];
 	var DOM_PROPERTY_SET = {};
@@ -717,23 +843,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	})();
 
-
-	function applyHook(hook, event, el, callback){
-	    "use strict";
-	    var hookName;
-	    if(hook && el.nodeType === 1 && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
-	        var handler = domHooks[hookName];
-	        if(handler[event]){
-	            try{
-	                handler[event](hook, el, callback);
-	            }catch(e){
-	                callback();
-	            }
-	            return;
-	        }
-	    }
-	    callback();
-	}
+	//
+	// function applyHook(hook, event, el, callback){
+	//     "use strict";
+	//     var hookName;
+	//     if(hook && el.nodeType === 1 && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
+	//         var handler = domHooks[hookName];
+	//         if(handler[event]){
+	//             try{
+	//                 handler[event](hook, el, callback);
+	//             }catch(e){
+	//                 callback();
+	//             }
+	//             return;
+	//         }
+	//     }
+	//     callback();
+	// }
 
 
 	function domNamespace(tag, parent) {
@@ -802,7 +928,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	function domData(el) {
 	    "use strict";
 	    var key = "__uruData";
-	    var data = el[key]  || (el[key] = {events: {}, directives: {}});
+	    var data = el[key]  || (el[key] = {events: {}, plugins: {}});
 	    return data;
 	}
 
@@ -814,15 +940,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	        name = domAddActionEventName(el);
 	    }
 	    if(eventName in events){
-	        domClean(node, el, eventName);
+	        domClean(node, eventName);
 	    }
 	    if(callback){
 	        var func = function (event) {
 	            event = dom.normalizeEvent(event);
 	            callback.call(node.owner, event);
-	            if(eventName === 'action'){
-	                redraw();
-	            }
+	            redraw();
 	        };
 	        events[eventName] = func;
 	        el.addEventListener(name, func, false);
@@ -831,13 +955,18 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function domClean(node, eventName) {
 	    "use strict";
-	    var el=node.el, events = domData(el).events, func, name = eventName;
-	    if(arguments.length < 3){
+	    var el=node.el, data = domData(el), events = data.events, func, name = eventName, plugins = data.plugins;
+	    if(arguments.length < 2){
 	        for(name in events){
 	            if(events.hasOwnProperty(name)){
-	                domClean(node, el, name);
+	                domClean(node, name);
 	            }
 	        }
+	        // for(name in plugins){
+	        //     if(plugins.hasOwnProperty(name)){
+	        //
+	        //     }
+	        // }
 	    }else{
 	        func = events[eventName];
 	        if(name === 'action'){
@@ -851,9 +980,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	function domDisplay(el, value){
 	    "use strict";
 	    var eventName = value ? "show" : "hide";
-	    applyHook(el.hook, eventName, el, function(){
+	    // applyHook(el.hook, eventName, el, function(){
 	        el.style.display = value ? "" : "none";
-	    });
+	    // });
 	}
 
 
@@ -862,14 +991,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var el = node.el;
 	    var key, value, type;
 	    var properties = {
-	        hook: 1,
 	        className: 1,
 	        checked:1,
 	        selected:1,
 	        disabled:1,
 	        readonly:1,
 	        innerHTML:1,
-	        innerText:1
+	        innerText:1,
+	        value:1
 	    };
 	    var events = [];
 	    for (key in values) {
@@ -915,13 +1044,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	        before = parent.childNodes[before];
 	    }
 	    if(before){
-	        applyHook(parent.hook, "enter", el, function(){
+	        // applyHook(parent.hook, "enter", el, function(){
 	            parent.insertBefore(el, before);
-	        });
+	        // });
 	    }else{
-	        applyHook(parent.hook, "enter", el, function(){
+	        // applyHook(parent.hook, "enter", el, function(){
 	            parent.appendChild(el);
-	        });
+	        // });
 	    }
 	}
 
@@ -929,21 +1058,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	function domRemove(node){
 	    "use strict";
 	    var el = node.el, parent = el.parentNode;
-	    applyHook(parent.hook, "leave", el, function(){
+	    // applyHook(parent.hook, "leave", el, function(){
 	        parent.removeChild(el);
-	    });
+	    // });
 	}
 
 
 	function domReorder(node, index){
 	    "use strict";
 	    var el = node.el, parent = el.parentNode;
-	    applyHook(parent.hook, "enter", el, function(){
+	    // applyHook(parent.hook, "enter", el, function(){
 	        var before = parent.childNodes[index];
 	        if(before !== el){
 	            parent.insertBefore(el, before);
 	        }
-	    });
+	    // });
 	}
 
 
@@ -1096,6 +1225,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	                attrs = utils.merge({}, item.attrs);
 	                container = [];
 	                child = new item.constructor(item.type, attrs, container, item.index);
+	                if(item.inclusion){
+	                    child.inclusion = item.inclusion;
+	                }
 	            }
 	            if(typeof item.key === 'number'){
 	                child.key = item.key;
@@ -1147,6 +1279,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    create: function(stack, parent, owner){
 	        "use strict";
 	        var component = this.component = new this.type(this.attrs);
+	        // this.parent = parent;
 	        ownComponent(owner, component);
 	        component.$tag = this;
 	        component.$lastUpdate = updateId;
@@ -1164,7 +1297,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.render();
 
 	        this.el = null;
+	        // parent = document.createDocumentFragment();
 	        pushChildNodes(stack, parent, this.component, this.children, 'dst');
+	    },
+	    mount: function () {
+	        "use strict";
+	        // var parent = this.parent, before = parent.childNodes[this.index];
+	        // console.log("Element", this.el, "Parent", parent, "Before", before);
+	        // parent.insertBefore(this.el.parentNode, before);
+	        // delete this.parent;
 	    },
 	    destroy: function (stack, nodelete) {
 	        "use strict";
@@ -1190,7 +1331,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        comp.set(this.attrs);
 	        this.el = src.el;
 	        this.children = src.children;
-	        this.inclusion = src.inclusion;
+	        //inclusion should not be copied here. This way only fresh content is rendered.
 	        comp.$dirty = true;
 	        this.owner = src.owner;
 
@@ -1200,22 +1341,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	    },
 	    update: function(){
 	        "use strict";
+	        var drawId = updateId;
 	        var stack = [this.component], content, component, tree, i, l;
 	        while(stack.length){
 	            tree = null;
 	            component = stack.pop();
 	            try {
-	                if (component.hasChanged && component.hasChanged()) {
+	                if (component.$lastUpdate !== drawId && component.hasChanged && component.hasChanged()) {
 	                    tree = component.$tree;
 	                    content = component.$tag.render();
 	                    patch(content, tree);
 	                    if (component.$updated && component.onUpdate) {
 	                        component.onUpdate();
 	                    }
+	                    component.$lastUpdate = drawId;
 	                }
 	                delete component.$updated;
 	                component.$dirty = false;
-	                component.$created = false;
 	                stack.push.apply(stack, component.$children);
 	            }catch(e){
 	                componentError(component, e);
@@ -1238,8 +1380,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function componentError(component, e) {
 	    "use strict";
+	    console.log(e.stack);
 	    var owner = component.$owner;
-	    console.log(e.stack, component.name, owner.name);
 	    component.$tag.defective = true;
 	    owner.trigger("error", e);
 	    //should not delete as object is still a part of render tree
@@ -1303,6 +1445,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    for(i=mounts.length-1; i>=0; i--){
 	        child = mounts[i];
+	        // child.$tag.mount();
 	        child.$mounted();
 	    }
 
@@ -1405,46 +1548,46 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return node;
 	}
 
-
-	function setHook(name, handler){
+	function stringify(node){
 	    "use strict";
-	}
-
-
-	function getHook(name){
-	    "use strict";
-	}
-
-	function hook(name, handler){
-	    "use strict";
-	    if(arguments.length < 2){
-	        return getHook(name);
-	    }else{
-	        setHook(name, handler);
-	        return getHook(name);
+	    var stack = [node], result = [], item;
+	    while(stack.length){
+	        item = stack.pop();
+	        if(utils.isString(item)){
+	            result.push(item);
+	        }else{
+	            result.push(item.startTag());
+	            stack.push(item.endTag());
+	            stack.push.apply(stack, item.children);
+	        }
 	    }
+	    return result.join("");
 	}
 
 	function updateUI(){
 	    "use strict";
 	    update();
 	    requestRunning = false;
-	    // if(requestPending){
-	    //     redraw();
-	    // }
+	    if(requestPending){
+	        redraw();
+	    }
 	}
 
 
-	function redraw(){
+	function redraw(later){
 	    "use strict";
-	    if(!requestRunning){
-	        requestPending = false;
-	        requestRunning = true;
-	        nextTick(updateUI);
-	    }else{
+	    if(later===true){
 	        requestPending = true;
+	    }else{
+	        requestPending = false;
+	        if(!requestRunning){
+	            requestRunning = true;
+	            nextTick(updateUI);
+	        }else{
+	            // var error = new Error("Recursion during redraw should be avoided");
+	            // console.log(error);
+	        }
 	    }
-
 	}
 
 
@@ -1836,11 +1979,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    },
 	    $callHandlers: function(event){
 	        "use strict";
-	        var listeners = this.$handlers, name = event.type;
+	        var listeners = this.$handlers,
+	            name = event.type,
+	            owner = this.getParent ? this.getParent(): null;
 	        if(listeners && (name in listeners)){
 	            var i, items = listeners[name];
 	            for(i=0;i<items.length;i++){
-	                items[i].call(this.$owner, event);
+	                items[i].call(owner, event);
 	            }
 	        }
 	    },
@@ -1881,20 +2026,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        "use strict";
 	        utils.assign(target, Emitter);
 	    }
-	};
-
-/***/ },
-/* 6 */
-/***/ function(module, exports) {
-
-	
-
-	var id = 2016, key = '$uruId';
-
-	module.exports = function (obj) {
-	    "use strict";
-	    obj[key] = ++id;
-	    return obj[key];
 	};
 
 /***/ }

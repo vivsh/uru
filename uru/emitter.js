@@ -75,11 +75,13 @@ var Emitter = {
     },
     $callHandlers: function(event){
         "use strict";
-        var listeners = this.$handlers, name = event.type;
+        var listeners = this.$handlers,
+            name = event.type,
+            owner = this.getParent ? this.getParent(): null;
         if(listeners && (name in listeners)){
             var i, items = listeners[name];
             for(i=0;i<items.length;i++){
-                items[i].call(this.$owner, event);
+                items[i].call(owner, event);
             }
         }
     },

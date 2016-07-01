@@ -25,6 +25,8 @@ var updateId = new Date().getTime(), oid = 87;
 
 var domHooks = {};
 
+var pluginRegistry = [];
+
 var DOM_PROPERTIES = ['innerText', 'innerHTML', 'value', 'checked', 'selected', 'selectedIndex',
         'disabled', 'readonly', 'className', 'style'];
 var DOM_PROPERTY_SET = {};
@@ -36,24 +38,6 @@ var DOM_PROPERTY_SET = {};
         DOM_PROPERTY_SET[DOM_PROPERTIES[i]] = true;
     }
 })();
-
-
-function applyHook(hook, event, el, callback){
-    "use strict";
-    var hookName;
-    if(hook && el.nodeType === 1 && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
-        var handler = domHooks[hookName];
-        if(handler[event]){
-            try{
-                handler[event](hook, el, callback);
-            }catch(e){
-                callback();
-            }
-            return;
-        }
-    }
-    callback();
-}
 
 
 function domNamespace(tag, parent) {
@@ -122,7 +106,7 @@ function domAddActionEventName(el){
 function domData(el) {
     "use strict";
     var key = "__uruData";
-    var data = el[key]  || (el[key] = {events: {}, directives: {}});
+    var data = el[key]  || (el[key] = {events: {}, plugins: {}});
     return data;
 }
 
@@ -149,13 +133,18 @@ function domAddEvent(node, el, eventName, callback) {
 
 function domClean(node, eventName) {
     "use strict";
-    var el=node.el, events = domData(el).events, func, name = eventName;
+    var el=node.el, data = domData(el), events = data.events, func, name = eventName, plugins = data.plugins;
     if(arguments.length < 2){
         for(name in events){
             if(events.hasOwnProperty(name)){
                 domClean(node, name);
             }
         }
+        // for(name in plugins){
+        //     if(plugins.hasOwnProperty(name)){
+        //
+        //     }
+        // }
     }else{
         func = events[eventName];
         if(name === 'action'){
@@ -169,9 +158,7 @@ function domClean(node, eventName) {
 function domDisplay(el, value){
     "use strict";
     var eventName = value ? "show" : "hide";
-    applyHook(el.hook, eventName, el, function(){
-        el.style.display = value ? "" : "none";
-    });
+    el.style.display = value ? "" : "none";
 }
 
 
@@ -233,13 +220,9 @@ function domAdopt(node, parent, before, replace){
         before = parent.childNodes[before];
     }
     if(before){
-        applyHook(parent.hook, "enter", el, function(){
-            parent.insertBefore(el, before);
-        });
+        parent.insertBefore(el, before);
     }else{
-        applyHook(parent.hook, "enter", el, function(){
-            parent.appendChild(el);
-        });
+        parent.appendChild(el);
     }
 }
 
@@ -247,21 +230,17 @@ function domAdopt(node, parent, before, replace){
 function domRemove(node){
     "use strict";
     var el = node.el, parent = el.parentNode;
-    applyHook(parent.hook, "leave", el, function(){
-        parent.removeChild(el);
-    });
+    parent.removeChild(el);
 }
 
 
 function domReorder(node, index){
     "use strict";
     var el = node.el, parent = el.parentNode;
-    applyHook(parent.hook, "enter", el, function(){
-        var before = parent.childNodes[index];
-        if(before !== el){
-            parent.insertBefore(el, before);
-        }
-    });
+    var before = parent.childNodes[index];
+    if(before !== el){
+        parent.insertBefore(el, before);
+    }
 }
 
 
@@ -341,7 +320,7 @@ DomNode.prototype = {
                 owner.$updated = true;
             }
         }else{
-            var diff = utils.diffAttr(src.attrs, this.attrs), changes;
+            var diff = utils.objectDiff(src.attrs, this.attrs), changes;
             if(diff){
                 changes = diff.changes;
                 domAttributes(this, changes);
@@ -539,7 +518,12 @@ ComponentNode.prototype = {
                 if (component.$lastUpdate !== drawId && component.hasChanged && component.hasChanged()) {
                     tree = component.$tree;
                     content = component.$tag.render();
-                    patch(content, tree);
+                    // console.log(tree, content);
+                    if(0 && tree && !tree.el){
+                        patch(content, null, tree.errorRoot);
+                    }else{
+                        patch(content, tree);
+                    }
                     if (component.$updated && component.onUpdate) {
                         component.onUpdate();
                     }
@@ -586,7 +570,7 @@ function patch(target, current, rootElement, before){
         parent:current ? current.el.parentNode : document.createDocumentFragment()
     }, stack = [origin], item, src, dst, parent, owner;
 
-    var mounts = [], unmounts = [], updates = [], deletes = [], i, l, child;
+    var mounts = [], unmounts = [], updates = [], deletes = [], i, l, child, error;
 
     if(target === current){
         return origin.parent;
@@ -612,6 +596,7 @@ function patch(target, current, rootElement, before){
                     mounts.push(dst.component);
                 }
             }catch (e){
+                dst.errorRoot = rootElement;
                 componentError(dst.component, e);
             }
         }else if(src.type !== dst.type){
@@ -632,13 +617,13 @@ function patch(target, current, rootElement, before){
         }
     }
 
-    for(i=mounts.length-1; i>=0; i--){
+    for (i = mounts.length - 1; i >= 0; i--) {
         child = mounts[i];
         // child.$tag.mount();
         child.$mounted();
     }
 
-    for(i=deletes.length-1; i>=0; i--){
+    for (i = deletes.length - 1; i >= 0; i--) {
         child = deletes[i];
         child.$destroyed();
     }

@@ -5,14 +5,15 @@ var utils = require("./utils"),
     emitter = require("./emitter");
 
 
-function Component(attrs){
+function Component(attrs, owner){
     "use strict";
     //can't call initialize from here as ownComponent should always be called from here.
     attrs = utils.merge({}, this.context, attrs);
     this.$events = {};
-    this.context = {}
+    this.context = {};
     this.$dirty = true;
-    this.set(attrs, true);
+    this.set(attrs, true); //initialize is called after this. Since, no event can be bound prior to that, there's no point in
+    //triggering events here.
     this.$dirty = false;
     this.$created = true;
 }
@@ -111,6 +112,28 @@ Component.prototype = {
             this.onDestroy();
         }
         this.trigger("destroy");
+    },
+    $disown: function () {
+        "use strict";
+        var i, owner = this.$owner,
+            children = owner.$children,
+            l = children.length;
+        this.$owner = null;
+        for(i=0; i<l; i++){
+            if(children[i] === this){
+                children.splice(i,1);
+                return;
+            }
+        }
+    },
+    $own: function (owner) {
+        "use strict";
+        var children = owner.$children || (owner.$children = []);
+        if(this.$owner){
+            this.$disown();
+        }
+        this.$owner = owner;
+        children.push(this);
     }
 }
 

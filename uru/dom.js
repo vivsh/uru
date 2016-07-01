@@ -182,6 +182,42 @@ function data(el, name){
     }
 }
 
+function collectValues(el, collector){
+    "use strict";
+    var stack = [el], item, tag;
+    while(stack.length){
+        item = stack.shift();
+        if(item.nodeType !== 1){
+            continue;
+        }
+        tag = item.tagName;
+        if(tag === "INPUT" || tag === 'SELECT' || tag === 'TEXTAREA'){
+            collector(item, getValue(item));
+            continue;
+        }
+        stack.push.apply(stack, el.childNodes);
+    }
+}
+
+function populateValues(el, provider){
+    "use strict";
+    var result = [], stack = [el], item, tag, value;
+    while(stack.length){
+        item = stack.shift();
+        if(item.nodeType !== 1){
+            continue;
+        }
+        tag = item.tagName;
+        if(tag === "INPUT" || tag === 'SELECT' || tag === 'TEXTAREA'){
+            if((value = provider(item)) != null){ //jshint ignore:line
+                setValue(item, value);
+            }
+            continue;
+        }
+        stack.push.apply(stack, el.childNodes);
+    }
+    return result;
+}
 
 function getValue(el){
     "use strict";
@@ -272,6 +308,8 @@ module.exports = {
     data: data,
     getValue: getValue,
     setValue: setValue,
-    closest: closestNode
+    closest: closestNode,
+    collectValues: collectValues,
+    populateValues: populateValues
 };
 

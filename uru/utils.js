@@ -163,7 +163,7 @@ function assign(target) {
 }
 
 
-function diffAttr(src, dst) {
+function objectDiff(src, dst) {
     "use strict";
     var item, changeKey, changes = {}, key, value, target,
         stack = [{src: src, dst: dst, reverse: false}, {src: dst, dst: src}], total = 0;
@@ -327,6 +327,22 @@ function isEqual(first, second){
 }
 
 
+function objectReact(source, target, callback, ctx){
+    "use strict";
+    var changes = objectDiff(source, target), key, value, hookKey, hookValue;
+    if(changes === false){
+        return;
+    }
+    changes = changes.changes;
+    for(key in changes){
+        if(changes.hasOwnProperty(key)){
+            value = changes[key];
+            callback.call(ctx, key, value, value!==undefined);
+        }
+    }
+}
+
+
 
 module.exports = {
     isArray: isArray,
@@ -337,7 +353,9 @@ module.exports = {
     extend: extend,
     remove: remove,
     merge: assign,
-    diffAttr: diffAttr,
+    diffAttr: objectDiff,
+    objectDiff: objectDiff,
+    objectReact: objectReact,
     take: take,
     Class: Class,
     assign: assign,
@@ -348,3 +366,4 @@ module.exports = {
     debounce: debounce,
     isEqual: isEqual
 };
+

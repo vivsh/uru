@@ -4,8 +4,7 @@ var utils = require("./utils"),
     Component = require("./component"),
     nodes = require("./nodes"),
     dom = require("./dom"),
-    emitter = require("./emitter"),
-    uruId = require("./uruId");
+    emitter = require("./emitter");
 
 
 
@@ -64,7 +63,13 @@ function uru(tagName){
             stack.unshift.apply(stack, item);
         }else if(item != null){ //jshint ignore:line
             if(!(item instanceof nodes.DomNode) && !(item instanceof nodes.ComponentNode)){
-                item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
+                if(typeof item === 'object' && typeof item.render === 'function'){
+                    item = item.render();
+                    stack.unshift(item);
+                    continue;
+                }else{
+                    item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
+                }
             }
             children.push(item);
             item.index = i;
@@ -219,8 +224,6 @@ uru.tie = function(attr, callback){
 
 uru.redraw = nodes.redraw;
 
-uru.queue = nodes.Queue;
-
 uru.nextTick = nodes.nextTick;
 
 uru.dom = dom;
@@ -230,8 +233,6 @@ uru.utils = utils;
 uru.Component = Component;
 
 uru.emitter = emitter;
-
-uru.id = uruId;
 
 emitter.enhance(uru);
 
