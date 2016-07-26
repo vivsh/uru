@@ -1,12 +1,11 @@
 
 var utils = require("./utils"),
-    dom = require("./dom"),
-    emitter = require("./emitter");
-
+    dom = require("./dom");
 
 var nextTick;
 
-var requestRunning = false, requestPending = false;
+
+var requestRunning = false;
 
 if(typeof window === 'object'){
     nextTick = window.requestAnimationFrame || window.setTimeout;
@@ -25,8 +24,6 @@ var updateId = new Date().getTime(), oid = 87;
 
 var domHooks = {};
 
-var pluginRegistry = [];
-
 var DOM_PROPERTIES = ['innerText', 'innerHTML', 'value', 'checked', 'selected', 'selectedIndex',
         'disabled', 'readonly', 'className', 'style'];
 var DOM_PROPERTY_SET = {};
@@ -38,6 +35,24 @@ var DOM_PROPERTY_SET = {};
         DOM_PROPERTY_SET[DOM_PROPERTIES[i]] = true;
     }
 })();
+
+
+function applyHook(hook, event, el, callback){
+    "use strict";
+    var hookName;
+    if(hook && el.nodeType === 1 && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
+        var handler = domHooks[hookName];
+        if(handler[event]){
+            try{
+                handler[event](hook, el, callback);
+            }catch(e){
+                callback();
+            }
+            return;
+        }
+    }
+    callback();
+}
 
 
 function domNamespace(tag, parent) {
@@ -106,7 +121,7 @@ function domAddActionEventName(el){
 function domData(el) {
     "use strict";
     var key = "__uruData";
-    var data = el[key]  || (el[key] = {events: {}, plugins: {}});
+    var data = el[key]  || (el[key] = {events: {}, directives: {}});
     return data;
 }
 
@@ -118,13 +133,15 @@ function domAddEvent(node, el, eventName, callback) {
         name = domAddActionEventName(el);
     }
     if(eventName in events){
-        domClean(node, eventName);
+        domClean(node, el, eventName);
     }
     if(callback){
         var func = function (event) {
             event = dom.normalizeEvent(event);
             callback.call(node.owner, event);
-            redraw();
+            if(eventName === 'action'){
+                redraw();
+            }
         };
         events[eventName] = func;
         el.addEventListener(name, func, false);
@@ -133,18 +150,13 @@ function domAddEvent(node, el, eventName, callback) {
 
 function domClean(node, eventName) {
     "use strict";
-    var el=node.el, data = domData(el), events = data.events, func, name = eventName, plugins = data.plugins;
-    if(arguments.length < 2){
+    var el=node.el, events = domData(el).events, func, name = eventName;
+    if(arguments.length < 3){
         for(name in events){
             if(events.hasOwnProperty(name)){
-                domClean(node, name);
+                domClean(node, el, name);
             }
         }
-        // for(name in plugins){
-        //     if(plugins.hasOwnProperty(name)){
-        //
-        //     }
-        // }
     }else{
         func = events[eventName];
         if(name === 'action'){
@@ -158,7 +170,9 @@ function domClean(node, eventName) {
 function domDisplay(el, value){
     "use strict";
     var eventName = value ? "show" : "hide";
-    el.style.display = value ? "" : "none";
+    applyHook(el.hook, eventName, el, function(){
+        el.style.display = value ? "" : "none";
+    });
 }
 
 
@@ -167,14 +181,14 @@ function domAttributes(node, values) {
     var el = node.el;
     var key, value, type;
     var properties = {
+        hook: 1,
         className: 1,
         checked:1,
         selected:1,
         disabled:1,
         readonly:1,
         innerHTML:1,
-        innerText:1,
-        value:1
+        innerText:1
     };
     var events = [];
     for (key in values) {
@@ -220,9 +234,19 @@ function domAdopt(node, parent, before, replace){
         before = parent.childNodes[before];
     }
     if(before){
-        parent.insertBefore(el, before);
+        if(replace){
+            applyHook(parent.hook, "enter", el, function(){
+                parent.replaceChild(el, before);
+            });
+        }else{
+            applyHook(parent.hook, "enter", el, function(){
+                parent.insertBefore(el, before);
+            });
+        }
     }else{
-        parent.appendChild(el);
+        applyHook(parent.hook, "enter", el, function(){
+            parent.appendChild(el);
+        });
     }
 }
 
@@ -230,17 +254,21 @@ function domAdopt(node, parent, before, replace){
 function domRemove(node){
     "use strict";
     var el = node.el, parent = el.parentNode;
-    parent.removeChild(el);
+    applyHook(parent.hook, "leave", el, function(){
+        parent.removeChild(el);
+    });
 }
 
 
 function domReorder(node, index){
     "use strict";
     var el = node.el, parent = el.parentNode;
-    var before = parent.childNodes[index];
-    if(before !== el){
-        parent.insertBefore(el, before);
-    }
+    applyHook(parent.hook, "enter", el, function(){
+        var before = parent.childNodes[index];
+        if(before !== el){
+            parent.insertBefore(el, before);
+        }
+    });
 }
 
 
@@ -261,6 +289,13 @@ DomNode.prototype = {
     constructor: DomNode,
     create: function(stack, parent, owner){
         "use strict";
+        var src = this.tenant, before, replace;
+
+        if(src){
+            before = src.el;
+            replace = true;
+        }
+
         var el, isText = this.type === TEXT_TYPE;
 
         if(isText){
@@ -273,12 +308,13 @@ DomNode.prototype = {
         this.el = el;
         this.owner = owner;
 
-        domAdopt(this, parent);
-        // if(this.tenant){
-            this.reorder(this);
-        // }
+        domAdopt(this, parent, before, replace);
 
         delete this.tenant;
+
+        if(src && this.index !== src.index){
+            this.reorder(src);
+        }
 
         if(owner && owner.$tree === this){
             owner.$tag.setEl(this);
@@ -290,6 +326,13 @@ DomNode.prototype = {
             pushChildNodes(stack, this.el, this.owner, this.children, 'dst');
         }
     },
+    replace: function (stack, src, owner) {
+        "use strict";
+        var el = src.component ? src.component.el : src.el, parent = el.parentNode;
+        this.tenant = src;
+        pushChildNodes(stack, parent, owner, [src], 'src', CLEAN);
+        this.create(stack, parent, owner);
+    },
     destroy: function(stack, nodelete) {
         "use strict";
         var isText = this.type === TEXT_TYPE, owner = this.owner, el = this.el;
@@ -297,12 +340,13 @@ DomNode.prototype = {
             pushChildNodes(stack, this.el, this.owner, this.children, 'src', CLEAN);
         }
 
-        if(!nodelete){
+        if(!nodelete && el.parentNode){
             domRemove(this);
         }
-
-        domClean(this);
-
+        //check
+        if(this.el) {
+            domClean(this);
+        }
         this.owner.$updated = true;
         this.el = null;
         this.owner = null;
@@ -323,7 +367,7 @@ DomNode.prototype = {
                 owner.$updated = true;
             }
         }else{
-            var diff = utils.objectDiff(src.attrs, this.attrs), changes;
+            var diff = utils.diffAttr(src.attrs, this.attrs), changes;
             if(diff){
                 changes = diff.changes;
                 domAttributes(this, changes);
@@ -334,13 +378,10 @@ DomNode.prototype = {
         if(this.index !== src.index){
             this.reorder(src);
         }
-
+        src.el = null;
         if(!isText){
             patchChildNodes(stack, this.el, src.owner, src.children, this.children);
         }
-
-        src.owner = null;
-        src.el = null;
     },
     reorder: function(src){
         "use strict";
@@ -372,7 +413,6 @@ function disownComponent(child){
     for(i=0; i<l; i++){
         if(children[i] === child){
             children.splice(i,1);
-            return;
         }
     }
 }
@@ -396,12 +436,9 @@ function clone(node){
                 attrs = utils.merge({}, item.attrs);
                 container = [];
                 child = new item.constructor(item.type, attrs, container, item.index);
-                if(item.inclusion){
-                    child.inclusion = item.inclusion;
+                if(item.hasOwnProperty('key')){
+                    child.key = item.key;
                 }
-            }
-            if(typeof item.key === 'number'){
-                child.key = item.key;
             }
             obj.container.unshift(child);
         }
@@ -416,7 +453,7 @@ function clone(node){
 
 function ComponentNode(type, attrs, children, index){
     "use strict";
-    //component shall have 4 attributes: owner, children, tree, el, attr, index;
+    //component shall have 4 attributes: owner, children, tree, el
     this.type = type;
     this.attrs = attrs;
     this.children = [];
@@ -433,8 +470,8 @@ ComponentNode.prototype = {
     constructor: ComponentNode,
     render: function(){
         "use strict";
-        var content = this.inclusion ;
-        // var content = this.inclusion && this.inclusion.length ? clone(this.inclusion) : undefined;
+        // var content = this.inclusion ;
+        var content = this.inclusion && this.inclusion.length ? clone(this.inclusion) : undefined;
         var tree = this.component.render(this.component.context, content);
         if(tree){
             tree.index = this.index;
@@ -449,11 +486,17 @@ ComponentNode.prototype = {
     },
     create: function(stack, parent, owner){
         "use strict";
-        var component = this.component = new this.type(this.attrs, owner);
-
+        var component = this.component = new this.type(this.attrs);
+        ownComponent(owner, component);
         component.$tag = this;
         component.$lastUpdate = updateId;
         this.owner = owner;
+
+        if(component.initialize){
+            component.$silent = true;
+            component.initialize(this.attrs);
+            delete component.$silent;
+        }
 
         if(component.hasChanged){
             component.hasChanged();
@@ -462,18 +505,27 @@ ComponentNode.prototype = {
         this.render();
 
         this.el = null;
-        // parent = document.createDocumentFragment();
         pushChildNodes(stack, parent, this.component, this.children, 'dst');
     },
-    mount: function () {
+    replace: function(stack, src, owner){
         "use strict";
+
+        var  parent = src.el.parentNode, tree;
+
+        pushChildNodes(stack, parent, owner, [src], 'src');
+
+        this.create(stack, parent, owner);
+
+        tree = this.children[0];
+
+        tree.tenant = src;
 
     },
     destroy: function (stack, nodelete) {
         "use strict";
         var action = nodelete ? CLEAN : null;
 
-        this.component.$disown();
+        disownComponent(this.component);
 
         pushChildNodes(stack, this.el, this.component, this.children, 'src', action);
 
@@ -493,35 +545,24 @@ ComponentNode.prototype = {
         comp.set(this.attrs);
         this.el = src.el;
         this.children = src.children;
-        //inclusion should not be copied here. This way only fresh content is rendered.
-        comp.$dirty = true;
         this.owner = src.owner;
-
         src.component = null;
         src.owner = null;
-        src.el = null;
     },
     update: function(){
         "use strict";
-        var drawId = updateId;
         var stack = [this.component], content, component, tree, i, l;
         while(stack.length){
             tree = null;
             component = stack.pop();
             try {
-                if (component.$lastUpdate !== drawId && component.hasChanged && component.hasChanged()) {
+                if (component.hasChanged && component.hasChanged()) {
                     tree = component.$tree;
                     content = component.$tag.render();
-                    // console.log(tree, content);
-                    if(0 && tree && !tree.el){
-                        patch(content, null, tree.errorRoot);
-                    }else{
-                        patch(content, tree);
-                    }
+                    patch(content, tree);
                     if (component.$updated && component.onUpdate) {
                         component.onUpdate();
                     }
-                    component.$lastUpdate = drawId;
                 }
                 delete component.$updated;
                 component.$dirty = false;
@@ -547,11 +588,17 @@ ComponentNode.prototype = {
 
 function componentError(component, e) {
     "use strict";
-    console.log(e.stack);
     var owner = component.$owner;
+    console.log(e.stack);
     component.$tag.defective = true;
-    owner.trigger("error", e);
-    //should not delete as object is still a part of render tree
+    disownComponent(component);
+
+    nextTick(function(){
+        owner.trigger("error", e);
+    });
+    if(component.$tree){
+        patch(null, component.$tree);
+    }
 }
 
 
@@ -564,7 +611,7 @@ function patch(target, current, rootElement, before){
         parent:current ? current.el.parentNode : document.createDocumentFragment()
     }, stack = [origin], item, src, dst, parent, owner;
 
-    var mounts = [], unmounts = [], updates = [], deletes = [], i, l, child, error;
+    var mounts = [], unmounts = [], updates = [], deletes = [], i, l, child;
 
     if(target === current){
         return origin.parent;
@@ -583,20 +630,22 @@ function patch(target, current, rootElement, before){
                 src.component.$unmounted();
             }
             src.destroy(stack, item.action === CLEAN);
-        }else if(!src){
+        }else if(!src || src.defective ){
             try{
                 dst.create(stack, parent, owner);
                 if(dst.component){
                     mounts.push(dst.component);
                 }
             }catch (e){
-                dst.errorRoot = rootElement;
                 componentError(dst.component, e);
             }
         }else if(src.type !== dst.type){
-            dst.tenant = src;
-            pushChildNodes(stack, parent, owner, [dst], 'dst');//create
-            pushChildNodes(stack, parent, owner, [src], 'src');//delete
+            // dst.replace(stack, src, owner);
+            // if(dst.component){
+            //     mounts.push(dst.component);
+            // }
+            pushChildNodes(stack, parent, owner, [dst], 'dst');
+            pushChildNodes(stack, parent, owner, [src], 'src');
         }else{
             dst.patch(stack, src);
         }
@@ -612,13 +661,12 @@ function patch(target, current, rootElement, before){
         }
     }
 
-    for (i = mounts.length - 1; i >= 0; i--) {
+    for(i=mounts.length-1; i>=0; i--){
         child = mounts[i];
-        // child.$tag.mount();
         child.$mounted();
     }
 
-    for (i = deletes.length - 1; i >= 0; i--) {
+    for(i=deletes.length-1; i>=0; i--){
         child = deletes[i];
         child.$destroyed();
     }
@@ -632,7 +680,7 @@ function getChildNodesMap(src){
     var i, l = src.length, result = {}, child, key;
     for(i=0; i<l; i++){
         child = src[i];
-        if(typeof child.key === 'number'){
+        if(child.hasOwnProperty("key")){
             result[child.key] = child;
         }
     }
@@ -662,7 +710,7 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
     l = dst.length;
     for(i=0; i<l; i++){
         dstChild = dst[i];
-        if(0 && dstChild.key != null){//jshint ignore: line
+        if(dstChild.hasOwnProperty("key") && typeof dstChild.key === 'number'){
             if(!childMap){
                 childMap = getChildNodesMap(src);
             }
@@ -701,7 +749,7 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
 
 rootComponent = new ComponentNode();
 rootComponent.component = {$tag: rootComponent, $name: "_root", name: "_root"};
-emitter.enhance(rootComponent.component);
+
 
 function update(){
     "use strict";
@@ -717,45 +765,39 @@ function mount(node, element, before){
     return node;
 }
 
-function stringify(node){
+
+function setHook(name, handler){
     "use strict";
-    var stack = [node], result = [], item;
-    while(stack.length){
-        item = stack.pop();
-        if(utils.isString(item)){
-            result.push(item);
-        }else{
-            result.push(item.startTag());
-            stack.push(item.endTag());
-            stack.push.apply(stack, item.children);
-        }
+}
+
+
+function getHook(name){
+    "use strict";
+}
+
+function hook(name, handler){
+    "use strict";
+    if(arguments.length < 2){
+        return getHook(name);
+    }else{
+        setHook(name, handler);
+        return getHook(name);
     }
-    return result.join("");
 }
 
 function updateUI(){
     "use strict";
     update();
     requestRunning = false;
-    if(requestPending){
-        redraw();
-    }
 }
 
 
-function redraw(later){
+function redraw(){
     "use strict";
-    if(later===true){
-        requestPending = true;
-    }else{
-        requestPending = false;
-        if(!requestRunning){
-            requestRunning = true;
-            nextTick(updateUI);
-        }else{
-            // var error = new Error("Recursion during redraw should be avoided");
-            // console.log(error);
-        }
+    if(!requestRunning){
+        requestRunning = true;
+        // updateUI();
+        nextTick(updateUI);
     }
 }
 

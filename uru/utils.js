@@ -286,6 +286,8 @@ function isEqual(first, second){
 
         }else if(typeA !== typeB){
             return false;
+        }else if(typeA === 'date'){
+            return a.getTime() === b.getTime();
         }else if(typeA !== 'object'){
             return false;
         }else if(a == null || b == null){//jshint ignore:line

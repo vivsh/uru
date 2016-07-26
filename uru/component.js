@@ -16,11 +16,17 @@ function Component(attrs, owner){
     //triggering events here.
     this.$dirty = false;
     this.$created = true;
+    this.$own(owner);
+    if(this.initialize){
+        this.initialize(this.context);
+        this.$dirty = true;
+    }
 }
 
 
 Component.prototype = {
     constructor: Component,
+    monitors: {},
     render: function(ctx, content){
         "use strict";
         throw new Error("Not implemented");
@@ -74,15 +80,15 @@ Component.prototype = {
                 }
             }
         }
+        var monitors = this.monitors;
         if(dirty && !silent){
             if(changeCount) {
                 for (var k in changes) {
-                    if (changes.hasOwnProperty(k)) {
+                    if (changes.hasOwnProperty(k) && k in monitors) {
                         this.trigger("change:" + k, changes[k]);
                     }
                 }
             }
-            this.trigger("change", changes);
             this.$created = false;
         }
         if(dirty) {

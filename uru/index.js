@@ -76,7 +76,7 @@ function uru(tagName){
             i += 1;
         }
     }
-    
+
     if(typeof tagName !== 'function'){
         tagName = parseTag(tagName, attrs);
         if(tagName in components){
@@ -102,12 +102,12 @@ function uru(tagName){
             result.key = attrs.key;
             delete attrs.key;
         }
-        // for(key in directives){
-        //     if(directives.hasOwnProperty(key) && key in attrs){
-        //         result = directives[key](attrs[key], result);
-        //         delete attrs[key];
-        //     }
-        // }
+        for(key in directives){
+            if(directives.hasOwnProperty(key) && key in attrs){
+                result = directives[key](attrs[key], result);
+                delete attrs[key];
+            }
+        }
     }
 
     return result;
@@ -168,9 +168,9 @@ function unmount(node){
 uru.mount = function(){
     "use strict";
     var args = arguments;
-    nodes.render(function(){
+    // nodes.render(function(){
         mount.apply(null, args);
-    });
+    // });
     return args[0];
 };
 
