@@ -132,7 +132,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            i += 1;
 	        }
 	    }
-	    
+
 	    if(typeof tagName !== 'function'){
 	        tagName = parseTag(tagName, attrs);
 	        if(tagName in components){
@@ -158,12 +158,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	            result.key = attrs.key;
 	            delete attrs.key;
 	        }
-	        // for(key in directives){
-	        //     if(directives.hasOwnProperty(key) && key in attrs){
-	        //         result = directives[key](attrs[key], result);
-	        //         delete attrs[key];
-	        //     }
-	        // }
+	        for(key in directives){
+	            if(directives.hasOwnProperty(key) && key in attrs){
+	                result = directives[key](attrs[key], result);
+	                delete attrs[key];
+	            }
+	        }
 	    }
 
 	    return result;
@@ -224,9 +224,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.mount = function(){
 	    "use strict";
 	    var args = arguments;
-	    nodes.render(function(){
+	    // nodes.render(function(){
 	        mount.apply(null, args);
-	    });
+	    // });
 	    return args[0];
 	};
 
@@ -587,6 +587,8 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        }else if(typeA !== typeB){
 	            return false;
+	        }else if(typeA === 'date'){
+	            return a.getTime() === b.getTime();
 	        }else if(typeA !== 'object'){
 	            return false;
 	        }else if(a == null || b == null){//jshint ignore:line
@@ -681,7 +683,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    emitter = __webpack_require__(5);
 
 
-	function Component(attrs){
+	function Component(attrs, owner){
 	    "use strict";
 	    //can't call initialize from here as ownComponent should always be called from here.
 	    attrs = utils.merge({}, this.context, attrs);
@@ -692,11 +694,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	    //triggering events here.
 	    this.$dirty = false;
 	    this.$created = true;
+	    this.$own(owner);
+	    if(this.initialize){
+	        this.initialize(this.context);
+	        this.$dirty = true;
+	    }
 	}
 
 
 	Component.prototype = {
 	    constructor: Component,
+	    monitors: {},
 	    render: function(ctx, content){
 	        "use strict";
 	        throw new Error("Not implemented");
@@ -750,15 +758,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	            }
 	        }
+	        var monitors = this.monitors;
 	        if(dirty && !silent){
 	            if(changeCount) {
 	                for (var k in changes) {
-	                    if (changes.hasOwnProperty(k)) {
+	                    if (changes.hasOwnProperty(k) && k in monitors) {
 	                        this.trigger("change:" + k, changes[k]);
 	                    }
 	                }
 	            }
-	            this.trigger("change", changes);
 	            this.$created = false;
 	        }
 	        if(dirty) {
@@ -788,6 +796,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	            this.onDestroy();
 	        }
 	        this.trigger("destroy");
+	    },
+	    $disown: function () {
+	        "use strict";
+	        var i, owner = this.$owner,
+	            children = owner.$children,
+	            l = children.length;
+	        this.$owner = null;
+	        for(i=0; i<l; i++){
+	            if(children[i] === this){
+	                children.splice(i,1);
+	                return;
+	            }
+	        }
+	    },
+	    $own: function (owner) {
+	        "use strict";
+	        var children = owner.$children || (owner.$children = []);
+	        if(this.$owner){
+	            this.$disown();
+	        }
+	        this.$owner = owner;
+	        children.push(this);
 	    }
 	}
 
@@ -842,24 +872,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        DOM_PROPERTY_SET[DOM_PROPERTIES[i]] = true;
 	    }
 	})();
-
-	//
-	// function applyHook(hook, event, el, callback){
-	//     "use strict";
-	//     var hookName;
-	//     if(hook && el.nodeType === 1 && (hookName = (hook = (utils.isString(hook) ? {name: hook} : hook)).name) in domHooks){
-	//         var handler = domHooks[hookName];
-	//         if(handler[event]){
-	//             try{
-	//                 handler[event](hook, el, callback);
-	//             }catch(e){
-	//                 callback();
-	//             }
-	//             return;
-	//         }
-	//     }
-	//     callback();
-	// }
 
 
 	function domNamespace(tag, parent) {
@@ -980,9 +992,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	function domDisplay(el, value){
 	    "use strict";
 	    var eventName = value ? "show" : "hide";
-	    // applyHook(el.hook, eventName, el, function(){
-	        el.style.display = value ? "" : "none";
-	    // });
+	    el.style.display = value ? "" : "none";
 	}
 
 
@@ -1044,13 +1054,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        before = parent.childNodes[before];
 	    }
 	    if(before){
-	        // applyHook(parent.hook, "enter", el, function(){
-	            parent.insertBefore(el, before);
-	        // });
+	        parent.insertBefore(el, before);
 	    }else{
-	        // applyHook(parent.hook, "enter", el, function(){
-	            parent.appendChild(el);
-	        // });
+	        parent.appendChild(el);
 	    }
 	}
 
@@ -1058,21 +1064,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	function domRemove(node){
 	    "use strict";
 	    var el = node.el, parent = el.parentNode;
-	    // applyHook(parent.hook, "leave", el, function(){
-	        parent.removeChild(el);
-	    // });
+	    parent.removeChild(el);
 	}
 
 
 	function domReorder(node, index){
 	    "use strict";
 	    var el = node.el, parent = el.parentNode;
-	    // applyHook(parent.hook, "enter", el, function(){
-	        var before = parent.childNodes[index];
-	        if(before !== el){
-	            parent.insertBefore(el, before);
-	        }
-	    // });
+	    var before = parent.childNodes[index];
+	    if(before !== el){
+	        parent.insertBefore(el, before);
+	    }
 	}
 
 
@@ -1106,6 +1108,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.owner = owner;
 
 	        domAdopt(this, parent);
+	        // if(this.tenant){
+	            this.reorder(this);
+	        // }
 
 	        delete this.tenant;
 
@@ -1152,7 +1157,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                owner.$updated = true;
 	            }
 	        }else{
-	            var diff = utils.diffAttr(src.attrs, this.attrs), changes;
+	            var diff = utils.objectDiff(src.attrs, this.attrs), changes;
 	            if(diff){
 	                changes = diff.changes;
 	                domAttributes(this, changes);
@@ -1262,8 +1267,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    constructor: ComponentNode,
 	    render: function(){
 	        "use strict";
-	        // var content = this.inclusion ;
-	        var content = this.inclusion && this.inclusion.length ? clone(this.inclusion) : undefined;
+	        var content = this.inclusion ;
+	        // var content = this.inclusion && this.inclusion.length ? clone(this.inclusion) : undefined;
 	        var tree = this.component.render(this.component.context, content);
 	        if(tree){
 	            tree.index = this.index;
@@ -1278,17 +1283,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    },
 	    create: function(stack, parent, owner){
 	        "use strict";
-	        var component = this.component = new this.type(this.attrs);
-	        // this.parent = parent;
-	        ownComponent(owner, component);
+	        var component = this.component = new this.type(this.attrs, owner);
+
 	        component.$tag = this;
 	        component.$lastUpdate = updateId;
 	        this.owner = owner;
-
-	        if(component.initialize){
-	            component.initialize(this.attrs);
-	            component.$dirty = true;
-	        }
 
 	        if(component.hasChanged){
 	            component.hasChanged();
@@ -1302,16 +1301,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    },
 	    mount: function () {
 	        "use strict";
-	        // var parent = this.parent, before = parent.childNodes[this.index];
-	        // console.log("Element", this.el, "Parent", parent, "Before", before);
-	        // parent.insertBefore(this.el.parentNode, before);
-	        // delete this.parent;
+
 	    },
 	    destroy: function (stack, nodelete) {
 	        "use strict";
 	        var action = nodelete ? CLEAN : null;
 
-	        disownComponent(this.component);
+	        this.component.$disown();
 
 	        pushChildNodes(stack, this.el, this.component, this.children, 'src', action);
 
@@ -1350,7 +1346,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	                if (component.$lastUpdate !== drawId && component.hasChanged && component.hasChanged()) {
 	                    tree = component.$tree;
 	                    content = component.$tag.render();
-	                    patch(content, tree);
+	                    // console.log(tree, content);
+	                    if(false){
+	                        patch(content, null, tree.errorRoot);
+	                    }else{
+	                        patch(content, tree);
+	                    }
 	                    if (component.$updated && component.onUpdate) {
 	                        component.onUpdate();
 	                    }
@@ -1397,7 +1398,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        parent:current ? current.el.parentNode : document.createDocumentFragment()
 	    }, stack = [origin], item, src, dst, parent, owner;
 
-	    var mounts = [], unmounts = [], updates = [], deletes = [], i, l, child;
+	    var mounts = [], unmounts = [], updates = [], deletes = [], i, l, child, error;
 
 	    if(target === current){
 	        return origin.parent;
@@ -1423,11 +1424,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	                    mounts.push(dst.component);
 	                }
 	            }catch (e){
+	                dst.errorRoot = rootElement;
 	                componentError(dst.component, e);
 	            }
 	        }else if(src.type !== dst.type){
-	            pushChildNodes(stack, parent, owner, [dst], 'dst');
-	            pushChildNodes(stack, parent, owner, [src], 'src');
+	            dst.tenant = src;
+	            pushChildNodes(stack, parent, owner, [dst], 'dst');//create
+	            pushChildNodes(stack, parent, owner, [src], 'src');//delete
 	        }else{
 	            dst.patch(stack, src);
 	        }
@@ -1443,13 +1446,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	    }
 
-	    for(i=mounts.length-1; i>=0; i--){
+	    for (i = mounts.length - 1; i >= 0; i--) {
 	        child = mounts[i];
 	        // child.$tag.mount();
 	        child.$mounted();
 	    }
 
-	    for(i=deletes.length-1; i>=0; i--){
+	    for (i = deletes.length - 1; i >= 0; i--) {
 	        child = deletes[i];
 	        child.$destroyed();
 	    }
@@ -1493,7 +1496,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    l = dst.length;
 	    for(i=0; i<l; i++){
 	        dstChild = dst[i];
-	        if(typeof dstChild.key === 'number'){
+	        if(false){//jshint ignore: line
 	            if(!childMap){
 	                childMap = getChildNodesMap(src);
 	            }
@@ -1803,6 +1806,42 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	}
 
+	function collectValues(el, collector){
+	    "use strict";
+	    var stack = [el], item, tag;
+	    while(stack.length){
+	        item = stack.shift();
+	        if(item.nodeType !== 1){
+	            continue;
+	        }
+	        tag = item.tagName;
+	        if(tag === "INPUT" || tag === 'SELECT' || tag === 'TEXTAREA'){
+	            collector(item, getValue(item));
+	            continue;
+	        }
+	        stack.push.apply(stack, el.childNodes);
+	    }
+	}
+
+	function populateValues(el, provider){
+	    "use strict";
+	    var result = [], stack = [el], item, tag, value;
+	    while(stack.length){
+	        item = stack.shift();
+	        if(item.nodeType !== 1){
+	            continue;
+	        }
+	        tag = item.tagName;
+	        if(tag === "INPUT" || tag === 'SELECT' || tag === 'TEXTAREA'){
+	            if((value = provider(item)) != null){ //jshint ignore:line
+	                setValue(item, value);
+	            }
+	            continue;
+	        }
+	        stack.push.apply(stack, el.childNodes);
+	    }
+	    return result;
+	}
 
 	function getValue(el){
 	    "use strict";
@@ -1893,7 +1932,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    data: data,
 	    getValue: getValue,
 	    setValue: setValue,
-	    closest: closestNode
+	    closest: closestNode,
+	    collectValues: collectValues,
+	    populateValues: populateValues
 	};
 
 
