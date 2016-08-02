@@ -356,90 +356,16 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var extend = function ClassFactory(options) {
 	    "use strict";
-	    var owner = this, prototype = owner.prototype, key, value, proto;
-
+	    var owner = this, prototype = owner.prototype;
 	    var subclass = options.hasOwnProperty('constructor') ? options.constructor : (function subclass() {
 	        owner.apply(this, arguments);
 	    });
-	    subclass.prototype = Object.create(owner.prototype);
-	    subclass.prototype.constructor = subclass;
-	    proto = subclass.prototype;
-	    proto.$super = prototype;
-	    var mixins = take(options, "mixins", []);
 	    var statics = take(options, "statics");
-	    mixins.unshift(options);
-	    wrapMixinMethods(proto, mixins);
-	    assign(subclass, owner, statics);
-	    if(subclass.initialize){
-	        subclass.initialize();
-	    }
-	    subclass.extend = this.extend;
+	    subclass.prototype = create(owner.prototype, options, {constructor: subclass});
+	    subclass.prototype.constructor = subclass;
+	    assign(subclass, {extend: extend}, owner);
 	    return subclass;
 	};
-
-
-	function methodWrapper(funcs){
-	    "use strict";
-	    if(funcs.length === 1){
-	        return funcs[0];
-	    }
-	    return function(){
-	        var i=0, result;
-	        for(i=0; i<funcs.length; i++){
-	            funcs[i].result = result;
-	            result = funcs[i].apply(this, arguments);
-	        }
-	        return result;
-	    };
-	}
-
-
-	function wrapMixinMethods(prototype, others) {
-	    "use strict";
-	    var key, value, obj, funcMap = {}, initial;
-	    var mixins = others, i, funcs;
-	    for(i=0;i<mixins.length;i++){
-	        funcs = [];
-	        obj = mixins[i];
-	        for(key in obj){
-	            if(obj.hasOwnProperty(key) && key !== 'constructor'){
-	                value = obj[key];
-	                initial = prototype[key];
-	                if(initial === value){
-	                    continue;
-	                }
-	                if(1) {//jshint ignore: line
-	                    if (typeof value === 'function') {
-	                        if (!funcMap.hasOwnProperty(key)) {
-	                            funcMap[key] = [value];
-	                        } else {
-	                            funcMap[key].push(value);
-	                        }
-	                    // } else if (isArray(value)) {
-	                    //     prototype[key] = initial ? initial.concat(value): value.slice(0);
-	                    // } else if (isPlainObject(value)){
-	                    //     prototype[key] = assign({}, initial, value);
-	                    }else {
-	                        prototype[key] = value;
-	                    }
-	                }else{
-	                    prototype[key] = value;
-	                }
-	            }
-	        }
-	    }
-	    for(key in funcMap){
-	        if(funcMap.hasOwnProperty(key)){
-	            value = funcMap[key];
-	            prototype[key] = methodWrapper(value);
-	        }
-	    }
-	}
-
-	function Class(options){
-	    "use strict";
-	    return extend.call(noop, options);
-	}
 
 
 	function remove(array, item) {
@@ -453,7 +379,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    return -1;
 	}
-
 
 	function assign(target) {
 	    'use strict';
@@ -665,6 +590,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var result = Object.create(prototype);
 	    var args = Array.prototype.slice.call(arguments, 1);
 	    args.unshift(result);
+	    result.super = prototype;
 	    return assign.apply(null, args);
 	}
 
@@ -687,7 +613,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    objectDiff: objectDiff,
 	    objectReact: objectReact,
 	    take: take,
-	    Class: Class,
 	    assign: assign,
 	    noop: noop,
 	    isExternalUrl: isExternalUrl,
