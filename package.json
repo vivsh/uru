@@ -7,7 +7,7 @@
     "test": "node test/nodes && node test/component",
     "watch": "webpack --watch --output-library uru --output-library-target umd uru/index.js dist/uru.js",
     "build-lib": "webpack --output-library uru --output-library-target umd uru/index.js dist/uru.js",
-    "build-lib-min": "webpack --output-library --optimize-minimize uru --output-library-target umd uru/index.js dist/uru.min.js",
+    "build-lib-min": "webpack --output-library uru --optimize-minimize --output-library-target umd uru/index.js dist/uru.min.js",
     "build": "npm run build-lib && npm run build-lib-min"
   },
   "repository": {

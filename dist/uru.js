@@ -60,7 +60,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    Component = __webpack_require__(2),
 	    nodes = __webpack_require__(3),
 	    dom = __webpack_require__(4),
-	    emitter = __webpack_require__(5);
+	    emitter = __webpack_require__(5),
+	    stringify = __webpack_require__(6);
 
 
 
@@ -291,6 +292,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.emitter = emitter;
 
 	emitter.enhance(uru);
+
+	uru.clean = nodes.clean;
+
+	uru.stringify = stringify.stringify;
 
 	module.exports = uru;
 
@@ -645,6 +650,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	}
 
+	function create(prototype){
+	    "use strict";
+	    var result = Object.create(prototype);
+	    var args = Array.prototype.slice.call(arguments, 1);
+	    args.unshift(result);
+	    return assign.apply(null, args);
+	}
+
+	function quote(str){
+	    "use strict";
+	    return str.replace(/\\([\s\S])|(")/g,"\\$1$2");
+	}
 
 
 	module.exports = {
@@ -667,7 +684,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    buildQuery: buildQuery,
 	    pathname: pathname,
 	    debounce: debounce,
-	    isEqual: isEqual
+	    isEqual: isEqual,
+	    create: create,
+	    quote: quote,
 	};
 
 
@@ -812,6 +831,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    },
 	    $own: function (owner) {
 	        "use strict";
+	        if(!owner){
+	            return;
+	        }
 	        var children = owner.$children || (owner.$children = []);
 	        if(this.$owner){
 	            this.$disown();
@@ -974,11 +996,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	                domClean(node, name);
 	            }
 	        }
-	        // for(name in plugins){
-	        //     if(plugins.hasOwnProperty(name)){
-	        //
-	        //     }
-	        // }
 	    }else{
 	        func = events[eventName];
 	        if(name === 'action'){
@@ -1514,8 +1531,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	            parent: parentNode
 	        });
 	    }
-	    l = src.length;
 
+	    l = src.length;
 	    for(i=0; i<l; i++){
 	        srcChild = src[i];
 	        if(srcChild.oid in used){
@@ -1551,21 +1568,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return node;
 	}
 
-	function stringify(node){
-	    "use strict";
-	    var stack = [node], result = [], item;
-	    while(stack.length){
-	        item = stack.pop();
-	        if(utils.isString(item)){
-	            result.push(item);
-	        }else{
-	            result.push(item.startTag());
-	            stack.push(item.endTag());
-	            stack.push.apply(stack, item.children);
-	        }
-	    }
-	    return result.join("");
-	}
 
 	function updateUI(){
 	    "use strict";
@@ -1602,6 +1604,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	    requestRunning = req;
 	}
 
+	function clean(node){
+	    "use strict";
+	    var stack = [node], item;
+	    while(stack.length){
+	        item = stack.shift();
+	        if(!item || item.type === -1){
+	            continue;
+	        }else if(item instanceof DomNode){
+	            domClean(item);
+	        }
+	        stack.unshift(item.$tree);
+
+	    }
+	}
 
 	module.exports = {
 	    DomNode: DomNode,
@@ -1615,7 +1631,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    nextTick: function nextFrame(func){
 	        "use strict";
 	        nextTick(func);
-	    }
+	    },
+	    clean: clean
 	};
 
 /***/ },
@@ -2068,6 +2085,101 @@ return /******/ (function(modules) { // webpackBootstrap
 	        utils.assign(target, Emitter);
 	    }
 	};
+
+/***/ },
+/* 6 */
+/***/ function(module, exports, __webpack_require__) {
+
+	
+	var utils = __webpack_require__(1), dom = __webpack_require__(4);
+
+	function normalizeStyle(style){
+	    "use strict";
+	    var key, rules, value;
+	    if(!style){
+	        return;
+	    }else if (utils.isString(style)) {
+	        return style;
+	    } else {
+	        rules = [];
+	        for (key in style) {
+	            if (style.hasOwnProperty(key)) {
+	                value = style[key];
+	                rules.push(key + ":" + value);
+	            }
+	        }
+	        return rules.join(";");
+	    }
+	}
+
+	function quote(str){
+	    "use strict";
+	    return str.replace(/\\([\s\S])|(")/g,"\\$1$2");
+	}
+
+	function stringify(node) {
+	    "use strict";
+	    var stack = [node], item, result = [], key, value;
+	    while(stack.length){
+	        item = stack.shift();
+	        if(!item){
+	            continue;
+	        }
+	        if(utils.isString(item)){
+	            result.push(item);
+	        }else if(item.type === -1){
+	            stack.unshift(item.children);
+	        }else if(typeof item.type === 'function'){
+	            var component = item.component = new item.type(item.attrs, null);
+	            if(component.hasChanged){
+	                component.hasChanged();
+	            }
+	            stack.unshift.apply(stack, item.render());
+	        }else{
+	            var children = item.children, attrs = item.attrs, tag = item.type, openTag = ["<"+tag], type;
+	            if(attrs.hasOwnProperty('show') && !attrs.show){
+	                continue;
+	            }
+	            for(key in attrs){
+	                if(attrs.hasOwnProperty(key)) {
+	                    value = attrs[key];
+	                    type = typeof value;
+	                    if(key === 'style'){
+	                        value = normalizeStyle(value);
+	                    }else if(key === 'class'){
+	                        value = dom.classes(value);
+	                    }else if(key === 'show'){
+	                        continue;
+	                    }
+	                    if(type === 'function'){
+	                        continue;
+	                    }
+	                    else if(type === 'boolean'){
+	                        if(value){
+	                            openTag.push(key);
+	                        }
+	                    }else if (value) {
+	                        if(!utils.isString(value)){
+	                            value = JSON.stringify(value);
+	                        }
+	                        openTag.push(key + "=\"" + quote(value) + "\"");
+	                    }
+	                }
+	            }
+	            openTag.push(">");
+	            result.push(openTag.join(" "));
+	            stack.unshift("</"+tag+">");
+	            if(children){
+	                stack.unshift.apply(stack, children);
+	            }
+	        }
+	    }
+	    return result.join("");
+	}
+
+	module.exports = {
+	    stringify: stringify
+	}
 
 /***/ }
 /******/ ])

@@ -134,6 +134,9 @@ Component.prototype = {
     },
     $own: function (owner) {
         "use strict";
+        if(!owner){
+            return;
+        }
         var children = owner.$children || (owner.$children = []);
         if(this.$owner){
             this.$disown();

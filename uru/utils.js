@@ -344,6 +344,18 @@ function objectReact(source, target, callback, ctx){
     }
 }
 
+function create(prototype){
+    "use strict";
+    var result = Object.create(prototype);
+    var args = Array.prototype.slice.call(arguments, 1);
+    args.unshift(result);
+    return assign.apply(null, args);
+}
+
+function quote(str){
+    "use strict";
+    return str.replace(/\\([\s\S])|(")/g,"\\$1$2");
+}
 
 
 module.exports = {
@@ -366,6 +378,8 @@ module.exports = {
     buildQuery: buildQuery,
     pathname: pathname,
     debounce: debounce,
-    isEqual: isEqual
+    isEqual: isEqual,
+    create: create,
+    quote: quote,
 };
 

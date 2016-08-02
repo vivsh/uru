@@ -140,11 +140,6 @@ function domClean(node, eventName) {
                 domClean(node, name);
             }
         }
-        // for(name in plugins){
-        //     if(plugins.hasOwnProperty(name)){
-        //
-        //     }
-        // }
     }else{
         func = events[eventName];
         if(name === 'action'){
@@ -680,8 +675,8 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
             parent: parentNode
         });
     }
-    l = src.length;
 
+    l = src.length;
     for(i=0; i<l; i++){
         srcChild = src[i];
         if(srcChild.oid in used){
@@ -717,21 +712,6 @@ function mount(node, element, before){
     return node;
 }
 
-function stringify(node){
-    "use strict";
-    var stack = [node], result = [], item;
-    while(stack.length){
-        item = stack.pop();
-        if(utils.isString(item)){
-            result.push(item);
-        }else{
-            result.push(item.startTag());
-            stack.push(item.endTag());
-            stack.push.apply(stack, item.children);
-        }
-    }
-    return result.join("");
-}
 
 function updateUI(){
     "use strict";
@@ -768,6 +748,20 @@ function render(func){
     requestRunning = req;
 }
 
+function clean(node){
+    "use strict";
+    var stack = [node], item;
+    while(stack.length){
+        item = stack.shift();
+        if(!item || item.type === -1){
+            continue;
+        }else if(item instanceof DomNode){
+            domClean(item);
+        }
+        stack.unshift(item.$tree);
+
+    }
+}
 
 module.exports = {
     DomNode: DomNode,
@@ -781,5 +775,6 @@ module.exports = {
     nextTick: function nextFrame(func){
         "use strict";
         nextTick(func);
-    }
+    },
+    clean: clean
 };

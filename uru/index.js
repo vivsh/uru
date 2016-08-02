@@ -4,7 +4,8 @@ var utils = require("./utils"),
     Component = require("./component"),
     nodes = require("./nodes"),
     dom = require("./dom"),
-    emitter = require("./emitter");
+    emitter = require("./emitter"),
+    stringify = require("./stringify");
 
 
 
@@ -235,5 +236,9 @@ uru.Component = Component;
 uru.emitter = emitter;
 
 emitter.enhance(uru);
+
+uru.clean = nodes.clean;
+
+uru.stringify = stringify.stringify;
 
 module.exports = uru;
