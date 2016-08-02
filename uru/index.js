@@ -9,7 +9,7 @@ var utils = require("./utils"),
 
 
 
-var components = {}, uruStarted = false, directives = {};
+var components = {}, directives = {};
 
 function parseTag(value, attrs){
     "use strict";
@@ -178,20 +178,17 @@ uru.mount = function(){
 uru.unmount = function(){
     "use strict";
     var args = arguments;
-    nodes.render(function(){
+    // nodes.render(function(){
         unmount.apply(null, args);
-    });
+    // });
 };
 
-function runUru(options){
+function runUru(scope){
     "use strict";
-    if(uruStarted){
-        return;
-    }
-    var settings = options || {};
+    scope = scope || document;
     nodes.render(function(){
         dom.ready(function(){
-           var matches = document.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
+           var matches = scope.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
            for(i=0; i<matches.length; i++){
                el = matches[i];
                if(el.__uruComponent){
@@ -199,12 +196,10 @@ function runUru(options){
                }
                options = dom.data(el, "uru-option") || {};
                name = el.getAttribute("data-uru-component");
-               el.__uruComponent = true;
-               mount(uru(name, options), el);
+               el.__uruComponent = mount(uru(name, options), el);
            }
         });
     });
-    uruStarted = true;
 }
 
 uru.automount = runUru;
@@ -237,7 +232,22 @@ uru.emitter = emitter;
 
 emitter.enhance(uru);
 
-uru.clean = nodes.clean;
+uru.clean = function(element){
+    "use strict";
+    if(element.nodeType){
+        var matches = element.querySelectorAll("[data-uru-component]");
+        for(var i=0; i<matches.length; i++){
+            var child = matches[i];
+            var comp = child.__uruComponent;
+            if(comp){
+                nodes.clean(comp);
+                delete child.__uruComponent;
+            }
+        }
+    }else{
+        nodes.clean(element);
+    }
+};
 
 uru.stringify = stringify.stringify;
 
