@@ -5,7 +5,8 @@ var utils = require("./utils"),
     nodes = require("./nodes"),
     dom = require("./dom"),
     emitter = require("./emitter"),
-    stringify = require("./stringify");
+    stringify = require("./stringify"),
+    types = require("./types");
 
 
 
@@ -248,6 +249,8 @@ uru.clean = function(element){
         nodes.clean(element);
     }
 };
+
+uru.types = types;
 
 uru.stringify = stringify.stringify;
 

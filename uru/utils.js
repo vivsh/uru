@@ -40,14 +40,17 @@ function isPlainObject(obj) {
 
 var extend = function ClassFactory(options) {
     "use strict";
-    var owner = this, prototype = owner.prototype;
+    var owner = this, prototype = owner.prototype, key, value;
     var subclass = options.hasOwnProperty('constructor') ? options.constructor : (function subclass() {
         owner.apply(this, arguments);
     });
     var statics = take(options, "statics");
+    var props = take(options, "props");
     subclass.prototype = create(owner.prototype, options, {constructor: subclass});
-    subclass.prototype.constructor = subclass;
     assign(subclass, {extend: extend}, owner);
+    if(props){
+        Object.defineProperties(subclass.prototype, props);
+    }
     return subclass;
 };
 

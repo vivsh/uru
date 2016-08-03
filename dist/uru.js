@@ -61,7 +61,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    nodes = __webpack_require__(3),
 	    dom = __webpack_require__(4),
 	    emitter = __webpack_require__(5),
-	    stringify = __webpack_require__(6);
+	    stringify = __webpack_require__(6),
+	    types = __webpack_require__(7);
 
 
 
@@ -305,6 +306,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	};
 
+	uru.types = types;
+
 	uru.stringify = stringify.stringify;
 
 	module.exports = uru;
@@ -356,14 +359,17 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var extend = function ClassFactory(options) {
 	    "use strict";
-	    var owner = this, prototype = owner.prototype;
+	    var owner = this, prototype = owner.prototype, key, value;
 	    var subclass = options.hasOwnProperty('constructor') ? options.constructor : (function subclass() {
 	        owner.apply(this, arguments);
 	    });
 	    var statics = take(options, "statics");
+	    var props = take(options, "props");
 	    subclass.prototype = create(owner.prototype, options, {constructor: subclass});
-	    subclass.prototype.constructor = subclass;
 	    assign(subclass, {extend: extend}, owner);
+	    if(props){
+	        Object.defineProperties(subclass.prototype, props);
+	    }
 	    return subclass;
 	};
 
@@ -2114,6 +2120,680 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = {
 	    stringify: stringify
+	}
+
+/***/ },
+/* 7 */
+/***/ function(module, exports, __webpack_require__) {
+
+	
+	var forms = __webpack_require__(8),
+	    types = __webpack_require__(12),
+	    widgets =__webpack_require__(9),
+	    layouts = __webpack_require__(10),
+	    errors = __webpack_require__(11);
+
+	module.exports = {
+	    define: types.define,
+	    Field: types.Field,
+	    Form: forms.Form,
+	    widget: widgets.widget,
+	    Widget: widgets.Widget,
+	    layout: layouts.layout,
+	    ValidationError: errors.ValidationError
+	};
+
+/***/ },
+/* 8 */
+/***/ function(module, exports, __webpack_require__) {
+
+	
+	var utils = __webpack_require__(1),
+	    widgets = __webpack_require__(9),
+	    layouts = __webpack_require__(10),
+	    errors = __webpack_require__(11),
+	    types = __webpack_require__(12);
+
+
+	var BoundField = utils.extend.call(Object, {
+	    constructor: function BoundField(form, field) {
+	        "use strict";
+	        this.form = form;
+	        this.field = field;
+	        this.name = field.name;
+	        this.id = "id_" + this.name;
+	        this.label = field.getLabel();
+	        var widgetFactory = widgets.widget(field.widget);
+	        this.widget = new widgetFactory();
+	        this.layout = layouts.layout(field.layout) || layouts.layout("default");
+	    },
+	    props:{
+	        silent: {
+	            get: function () {
+	                "use strict";
+	                return !!this.form.fieldSilence[this.name];
+	            },
+	            set: function (value) {
+	                "use strict";
+	                this.form.fieldSilence[this.name] = !!value;
+	            }
+	        },
+	        errors: {
+	            get: function () {
+	                "use strict";
+	                return this.form.errors.get(this.name);
+	            }
+	        },
+	        data: {
+	            get: function () {
+	                "use strict";
+	                return this.widget.read(this.name, this.form.data);
+	            }
+	        },
+	        value: {
+	            get: function () {
+	                "use strict";
+	                return this.form.cleanedData[this.name];
+	            }
+	        }
+	    },
+	    clean: function (value) {
+	        "use strict";
+	        var field = this.field;
+	        if(field.isEmpty(value)){
+	            return null;
+	        }else{
+	            value = field.toJS(value);
+	        }
+	        return value;
+	    },
+	    validate: function (value) {
+	        "use strict";
+	        var field = this.field;
+	        field.validate(value);
+	    },
+	    render: function () {
+	        "use strict";
+	        var info = {
+	            widget:  this.widget,
+	            errors: this.errors,
+	            value: this.value,
+	            label: this.label,
+	            name: this.name,
+	            field: this,
+	            id: this.id
+
+	        };
+	        return this.layout(info);
+	    }
+	});
+
+
+	function createProperty(form, field){
+	    "use strict";
+	    return {
+	        value: new BoundField(form, field),
+	        configurable: true
+	    };
+	}
+
+	var Form = utils.extend.call(Object, {
+	    constructor:function Form(options) {
+	        "use strict";
+	        this._errors = new errors.ErrorDict();
+	        this.changedData = {$count: 0};
+	        this.fieldSilence = {};
+	        this.silent = true;
+	        this.options = utils.assign({}, options);
+	        var fields = this.constructor.fields, field;
+	        for(var i=0; i<fields.length; i++){
+	            field = fields[i];
+	            Object.defineProperty(this, field.name, createProperty(this, field));
+	            this.fieldSilence[field.name] = true;
+	        }
+	        this._dirty = true;
+	        this.setData(options.data);
+	    },
+	    props: {
+	        errors: {
+	            get: function () {
+	                "use strict";
+	                if(this._dirty){
+	                    this.runClean();
+	                }
+	                return this._errors;
+	            },
+	            enumerable: false
+	        },
+	        multipart: {
+	            get: function () {
+	                "use strict";
+	                var i, fields = this.getFields(), field;
+	                for(i=0; i<fields.length; i++){
+	                    field = fields[i];
+	                    if(field.widget.multipart){
+	                        return true;
+	                    }
+	                }
+	                return false;
+	            }
+	        },
+	        fields: {
+	            get: function () {
+	                "use strict";
+	                return this.getFields();
+	            }
+	        },
+	        visibleFields: {
+	            get: function () {
+	                "use strict";
+	                var i, fields = this.getFields(), result = [], field;
+	                for(i=0; i<fields.length; i++){
+	                    field = fields[i];
+	                    if(!field.widget.hidden){
+	                        result.push(field);
+	                    }
+	                }
+	                return result;
+	            }
+	        },
+	        hiddenFields: {
+	            get: function () {
+	                "use strict";
+	                var i, fields = this.getFields(), result = [], field;
+	                for(i=0; i<fields.length; i++){
+	                    field = fields[i];
+	                    if(field.widget.hidden){
+	                        result.push(field);
+	                    }
+	                }
+	                return result;
+	            }
+	        }
+	    },
+	    getFields: function () {
+	        "use strict";
+	        var fields = this.constructor.fields, field, result = [];
+	        for(var i=0; i<fields.length; i++){
+	            field = this[fields[i].name];
+	            result.push(field);
+	        }
+	        return result;
+	    },
+	    setErrors: function (errors) {
+	        "use strict";
+	        var key, value;
+	        this._errors.add(new errors.ValidationError(errors), this);
+	    },
+	    nonFieldErrors: function () {
+	        "use strict";
+	        return this.errors.get('__all__');
+	    },
+	    setData: function (data) {
+	        "use strict";
+	        data = data || {};
+	        var previous = utils.assign({}, this.data), key, value, initial, field;
+	        var changes = {}, fields = this.getFields(), changeCount = 0;
+	        for(var i=0; i<fields.length; i++){
+	            field = fields[i];
+	            value = field.widget.read(field.name, data);
+	            initial = field.widget.read(field.name, previous);
+	            if(!utils.isEqual(initial, value)){
+	                changes[field.name] = initial;
+	                this._errors.clear(field.name);
+	                changeCount++;
+	            }
+	        }
+	        changes.$count = changeCount;
+	        this.changedData = changes;
+	        if(changeCount){
+	            this._dirty = true;
+	        }
+	        this.data = data;
+	    },
+	    hasChanged: function (name) {
+	        "use strict";
+	        if(arguments.length>=1){
+	            return name in this.changedData;
+	        }
+	        return this.changedData.$count;
+	    },
+	    formatErrorMessage: function (message, fieldName, code) {
+	        "use strict";
+	        return message;
+	    },
+	    runClean: function () {
+	        "use strict";
+	        var errors = this._errors, self = this;
+	        errors.capture(function () {
+	            self.cleanedData = self.clean();
+	        }, this);
+	        this._dirty = false;
+	    },
+	    isValid: function () {
+	        "use strict";
+	        return this.errors.length === 0;
+	    },
+	    clean: function () {
+	        "use strict";
+	        var pastData = this.cleanedData;
+	        var fields = this.getFields(), data = this.data, field, value, cleanedData = {}, key, methodName,
+	            fieldNames = {};
+	        var errors = this._errors, self = this;
+	        errors.clear('__all__');
+	        this.cleanedData = cleanedData;
+	        for(var i=0; i<fields.length; i++){
+	            field = fields[i];
+	            if(!this.hasChanged(field.name)){
+	                cleanedData[field.name] = pastData[field.name];
+	                continue;
+	            }
+	            errors.clear(field.name);
+	            fieldNames[field.name] = field;
+	            errors.capture(function () {
+	                cleanedData[field.name] = field.clean(field.data);
+	            }, this, field.name);//jshint ignore: line
+	        }
+	        for(key in cleanedData){
+	            if(cleanedData.hasOwnProperty(key) && key in fieldNames){
+	                field = fieldNames[key];
+	                value = cleanedData[key];
+	                errors.capture(function () {
+	                    field.validate(value, cleanedData);
+	                    methodName = "clean" + key.charAt(0).toUpperCase() + key.substr(1);
+	                    if(typeof self[methodName] === 'function'){
+	                        cleanedData[key] = self[methodName](value, cleanedData);
+	                    }
+	                }, this, key)//jshint ignore: line
+	            }
+	        }
+	        return cleanedData;
+	    }
+	});
+
+	Form.extend = function (options) {
+	    "use strict";
+	    var key, value;
+	    for(key in options){
+	        if(options.hasOwnProperty(key) && (value = options[key]) instanceof types.Field){
+	            value.name = key;
+	        }
+	    }
+	    var factory = utils.extend.call(this, options);
+	    factory.fields = types.Field.collect(factory.prototype);
+	    return factory;
+	};
+
+
+	module.exports = {
+	    Form: Form
+	};
+
+/***/ },
+/* 9 */
+/***/ function(module, exports, __webpack_require__) {
+
+	
+
+	var utils = __webpack_require__(1);
+
+	var widgetRegistry = {};
+
+
+	var Widget = utils.extend.call(Object, {
+	    constructor: function Widget(options) {
+	        "use strict";
+	        utils.assign(this, {}, options);
+	    },
+	    read: function(name, data){
+	        "use strict";
+	        return data[name];
+	    }
+	});
+
+
+	function widget(name, definition){
+	    "use strict";
+	    var base;
+	    if(arguments.length > 1) {
+	        if(arguments.length > 2){
+	            base  = widgetRegistry[definition];
+	            definition = arguments[2];
+	        }else{
+	            base = Widget;
+	        }
+	        var class_ = typeof definition === 'function' ? definition : base.extend(definition);
+	        class_.prototype.name = name;
+	        widgetRegistry[name] = class_;
+	        return class_;
+	    }else{
+	        return widgetRegistry[name];
+	    }
+	}
+
+	(function () {
+	    "use strict";
+	    var commonWidgets = ['checkbox', 'radio', 'select', 'text', 'date', 'time', 'datetime', 'number', 'email', 'tel'],
+	        name;
+	    for(var i=0; i<commonWidgets.length; i++){
+	        name = commonWidgets[i];
+	        widget(name, {});
+	    }
+	}());
+
+	module.exports = {
+	    widget: widget,
+	    Widget: Widget
+	};
+
+/***/ },
+/* 10 */
+/***/ function(module, exports, __webpack_require__) {
+
+	
+	var utils = __webpack_require__(1);
+
+	var layoutRegistry = {};
+
+	function layout(name, callback) {
+	    "use strict";
+	    if(arguments.length === 1){
+	        return layoutRegistry[name];
+	    }else{
+	        layoutRegistry[name] = callback;
+	        return callback;
+	    }
+	}
+
+	module.exports = {
+	    layout: layout
+	}
+
+/***/ },
+/* 11 */
+/***/ function(module, exports, __webpack_require__) {
+
+	
+
+	var utils = __webpack_require__(1);
+
+
+	var ErrorDict = utils.extend.call(Object, {
+	    constructor: function ErrorDict(){
+	        "use strict";
+	        this.data = {};
+	        this._length = 0;
+	    },
+	    all: function () {
+	        "use strict";
+	        return utils.assign({}, this.data);
+	    },
+	    get: function (key) {
+	        "use strict";
+	        return this.data[key] || [];
+	    },
+	    capture: function(func, form, name){
+	        "use strict";
+	        var self = this;
+	        try{
+	            func();
+	        }catch(e){
+	            if(e instanceof ValidationError){
+	                e.name = name;
+	                self.add(e, form);
+	            }else{
+	                throw e;
+	            }
+	        }
+	    },
+	    clear: function(){
+	        "use strict";
+	        if(arguments.length === 0) {
+	            this.data = {};
+	            this._length = 0;
+	        }else{
+	            var data = this.data, value, key;
+	            for(var i=0; i<arguments.length; i++){
+	                key = arguments[i];
+	                value = data[key];
+	                if(value){
+	                    this._length -= value.length;
+	                    delete data[key];
+	                }
+	            }
+	        }
+	    },
+	    _insert: function (error, name, form) {
+	        "use strict";
+	        var data = this.data;
+	        name = name || '__all__';
+	        if(!(name in data)){
+	            data[name] = [];
+	        }
+	        var message = form ? form.formatErrorMessage(error.data, error.name, error.code) : error.data;
+	        data[name].push(message);
+	        this._length ++;
+	    },
+	    add: function (error, form) {
+	        "use strict";
+	        var stack = [error], item;
+	        while(stack.length){
+	            item = stack.pop();
+	            if(utils.isArray(item)){
+	                stack.push.apply(stack, item);
+	            }else{
+	                if(utils.isString(item.data)){
+	                    this._insert(item, item.name, form);
+	                }else{
+	                    stack.push.apply(stack, item.data);
+	                }
+	            }
+	        }
+	    },
+	    props:{
+	        length:{
+	            get: function () {
+	                "use strict";
+	                return this._length;
+	            },
+	            enumerable: false
+	        }
+	    }
+	});
+
+	function ValidationError(message, code, name){
+	    "use strict";
+	    var data = message, key, value, list = [];
+	    if(arguments.length === 1){
+	        for(key in data){
+	            if(data.hasOwnProperty(key)){
+	                value = data[key];
+	                if(utils.isArray(value)){
+	                    value.forEach(function (v) {
+	                        list.push(new ValidationError(v, null, key));
+	                    });//jshint ignore: line
+	                }else if(!utils.isString(value)){
+	                    throw new Error("ValidationError accepts a string or a map<string,string>");
+	                }else{
+	                    list.push(new ValidationError(value, null, key));
+	                }
+	            }
+	        }
+	        this.data = list;
+	    }else{
+	        this.data = message;
+	        this.code = code;
+	        this.name = name;
+	    }
+	}
+
+
+	module.exports = {
+	    ValidationError: ValidationError,
+	    ErrorDict: ErrorDict
+	};
+
+
+
+/***/ },
+/* 12 */
+/***/ function(module, exports, __webpack_require__) {
+
+	
+	var utils = __webpack_require__(1), errors = __webpack_require__(11);
+
+	var fieldRegistry = {};
+
+	var fieldWidgetMapping = {
+	    string: "string",
+	    boolean: "checkbox",
+	    number: "number"
+	}
+
+	function Field(options){
+	    "use strict";
+	    options = options || {};
+	    var type = fieldRegistry[options.type || 'string'];
+	    if(!type){
+	        throw new Error("Unknown field type: "+ options.type);
+	    }
+	    return new type(options);
+	}
+
+	Field.collect = function (source) {
+	        "use strict";
+	    var result = [], key, value;
+	    for(key in source){//jshint ignore: line
+	        value = source[key];
+	        if(value instanceof Type){
+	            result.push(value);
+	        }
+	    }
+	    return result;
+	}
+
+	var Type = utils.extend.call(Field, {
+	    constructor: function Type(options) {
+	            "use strict";
+	        if(this.super.constructor !== Type){
+	            this.super.constructor.call(this, arguments);
+	        }
+	        this.widget = "text";
+	        this.layout = "vertical";
+	        utils.assign(this, options);
+	    },
+	    validateChoice: function(value){
+	        "use strict";
+	        var choices = this.choices, i;
+	        for(i=0; i< choices.length; i++){
+	            if(choices[i].value == value){//jshint ignore: line
+	                return;
+	            }
+	        }
+	        if(i){
+	            throw new errors.ValidationError("Invalid choice", "choice", this.name);
+	        }
+	    },
+	    validateMultipleChoice: function(values){
+	        "use strict";
+	        var i;
+	        for (i = 0; i < values.length; i++) {
+	            this.validateChoice(values[i]);
+	        }
+	    },
+	    isEmpty: function (value) {
+	            "use strict";
+	        return value == '' || value == null || value.length === 0; //jshint ignore: line
+	    },
+	    isEqual: function (a, b) {
+	            "use strict";
+	        return a === b;
+	    },
+	    toJS: function (value, options) {
+	            "use strict";
+	        return value;
+	    },
+	    validate: function (value) {
+	            "use strict";
+	        var validators = this.validators || [], i;
+	        if(this.isEmpty(value)){
+	            if(this.required){
+	                throw new errors.ValidationError("This field is required", "required");
+	            }
+	            return null;
+	        }else{
+	            if(this.choices){
+	                if(utils.isArray(value)){
+	                    this.validateMultipleChoice(value);
+	                }else{
+	                    this.validateChoice(value);
+	                }
+	            }
+	            for(i=0; i<validators.length; i++){
+	                validators[i](value);
+	            }
+	        }
+	    },
+	    getLabel: function () {
+	            "use strict";
+	        if(this.hasOwnProperty("label")){
+	            return this.label;
+	        }
+	        return this.name.charAt(0).toUpperCase() + this.name.substr(1);
+	    }
+	});
+
+	function define(name, defn){
+	    fieldRegistry[name] = Type.extend(defn);
+	}
+
+	define("integer", {
+	    clean: function (value) {
+	            "use strict";
+	        return parseInt(value);
+	    }
+	});
+
+	define("float", {
+	    clean: function (value) {
+	            "use strict";
+	        return parseFloat(value);
+	    }
+	});
+
+	define("string", {
+	    clean: function (value) {
+	            "use strict";
+	        return value;
+	    }
+	});
+
+
+	define("date", {
+	    clean: function () {
+	            "use strict";
+	        return
+	    }
+	});
+
+
+	define("datetime", {
+	    clean: function () {
+	        "use strict";
+	    }
+	});
+
+
+	define("list", {
+	    clean: function (values) {
+	        "use strict";
+	        return values.map(this.base.clean);
+	    }
+	});
+
+	module.exports = {
+	    define: define,
+	    Field: Field
 	}
 
 /***/ }
