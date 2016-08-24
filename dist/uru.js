@@ -249,12 +249,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	           var matches = scope.querySelectorAll("[data-uru-component]")||[], i, el, options, mounts = [], name;
 	           for(i=0; i<matches.length; i++){
 	               el = matches[i];
-	               if(el.__uruComponent){
+	               if(el.uruNode){
 	                   continue;
 	               }
 	               options = dom.data(el, "uru-context") || {};
 	               name = el.getAttribute("data-uru-component");
-	               el.__uruComponent = mount(uru(name, options), el);
+	               el.uruNode = mount(uru(name, options), el);
 	           }
 	        });
 	    });
@@ -296,16 +296,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var matches = element.querySelectorAll("[data-uru-component]");
 	        for(var i=0; i<matches.length; i++){
 	            var child = matches[i];
-	            var comp = child.__uruComponent;
+	            var comp = child.uruNode;
 	            if(comp){
 	                nodes.clean(comp);
-	                delete child.__uruComponent;
+	                delete child.uruNode;
 	            }
 	        }
 	    }else{
 	        nodes.clean(element);
 	    }
 	};
+
+	uru.setContext = function (element, context) {
+	    "use strict";
+	    element.uruNode.component.set(context);
+	    nodes.redraw();
+	}
 
 	uru.types = types;
 
