@@ -1,4 +1,4 @@
-
+from ast import literal_eval
 from contextlib import contextmanager
 import os
 import json
@@ -21,7 +21,7 @@ def publish(message, version=None):
         local("git add . --all")
         local("git commit -am '%s'" % message)
         if version is None:
-            version = json.loads(local("npm version", capture=True))['uru']
+            version = local("npm view uru version", capture=True).strip()
             version = [int(a) for a in version.split(".")]
             version[-1] += 1
             version = ".".join(version)
