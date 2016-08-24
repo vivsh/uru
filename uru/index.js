@@ -7,6 +7,7 @@ var utils = require("./utils"),
     emitter = require("./emitter"),
     stringify = require("./stringify"),
     types = require("./types");
+    // routes = require("./routes");
 
 
 
@@ -195,7 +196,7 @@ function runUru(scope){
                if(el.__uruComponent){
                    continue;
                }
-               options = dom.data(el, "uru-option") || {};
+               options = dom.data(el, "uru-context") || {};
                name = el.getAttribute("data-uru-component");
                el.__uruComponent = mount(uru(name, options), el);
            }
@@ -253,5 +254,7 @@ uru.clean = function(element){
 uru.types = types;
 
 uru.stringify = stringify.stringify;
+
+// uru.routes = routes;
 
 module.exports = uru;

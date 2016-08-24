@@ -287,6 +287,21 @@ function quote(str){
 }
 
 
+function bind(func, ctx) {
+    "use strict";
+    return function () {
+        return func.apply(ctx, Array.prototype.slice.call(arguments, 2));
+    };
+}
+
+function bindAll(obj) {
+    "use strict";
+    var args = Array.prototype.slice.call(arguments, 1);
+    for(var i=0; i< args.length; i++){
+        bind(obj[args[i]], obj);
+    }
+}
+
 module.exports = {
     isArray: isArray,
     isString: isString,
@@ -309,5 +324,7 @@ module.exports = {
     isEqual: isEqual,
     create: create,
     quote: quote,
+    bind: bind,
+    bindAll: bindAll
 };
 
