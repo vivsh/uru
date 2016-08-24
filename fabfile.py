@@ -34,5 +34,6 @@ def publish(message, version=None):
         local("git commit -am '%s'" % message)
         local("npm version %s" % version)
         local("git push origin master --tags")
+        local("npm publish")
 
 
