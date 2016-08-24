@@ -1,29 +1,29 @@
 {
-  "name": "uru",
-  "description": "virtual-dom library",
-  "main": "uru/index.js",
-  "authors": [
-    "vivek"
-  ],
-  "license": "MIT",
-  "keywords": [
-    "virtual-dom",
-    "uru",
-    "javascript",
-    "dom"
-  ],
-  "homepage": "https://github.com/vivsh/uru",
-  "moduleType": [
-    "amd",
-    "globals",
-    "node"
-  ],
-  "ignore": [
-    "**/.*",
-    "node_modules",
-    "bower_components",
-    "test",
-    "tests"
-  ],
-  "version": "0.0.6"
+    "name": "uru", 
+    "license": "MIT", 
+    "ignore": [
+        "**/.*", 
+        "node_modules", 
+        "bower_components", 
+        "test", 
+        "tests"
+    ], 
+    "version": "0.3.11", 
+    "authors": [
+        "vivek"
+    ], 
+    "keywords": [
+        "virtual-dom", 
+        "uru", 
+        "javascript", 
+        "dom"
+    ], 
+    "moduleType": [
+        "amd", 
+        "globals", 
+        "node"
+    ], 
+    "main": "uru/index.js", 
+    "homepage": "https://github.com/vivsh/uru", 
+    "description": "virtual-dom library"
 }

@@ -18,10 +18,9 @@ def relative_path(*args):
 def publish(message, version=None):
     with lcd(BASE_DIR):
         local("npm run build")
-        local("git add . --all")
-        local("git commit -am '%s'" % message)
         if version is None:
-            version = local("npm view uru version", capture=True).strip()
+            with open("package.json") as fp:
+                version = json.loads(fp.read())["version"]
             version = [int(a) for a in version.split(".")]
             version[-1] += 1
             version = ".".join(str(v) for v in version)
@@ -29,9 +28,11 @@ def publish(message, version=None):
             content = fh.read()
             data = json.loads(content)
         data['version'] = version
-        local("npm version %s" % version)
         with open("bower.json", "w") as fh:
             fh.write(json.dumps(data, indent=4))
+        local("git add . --all")
+        local("git commit -am '%s'" % message)
+        local("npm version %s" % version)
         local("git push origin master --tags")
 
 
