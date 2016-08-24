@@ -24,7 +24,7 @@ def publish(message, version=None):
             version = local("npm view uru version", capture=True).strip()
             version = [int(a) for a in version.split(".")]
             version[-1] += 1
-            version = ".".join(version)
+            version = ".".join(str(v) for v in version)
         with open("bower.json") as fh:
             content = fh.read()
             data = json.loads(content)
