@@ -366,7 +366,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return false;
 	}
 
-	var extend = function ClassFactory(options) {
+	var extend = function ClassFactory(options, staticOptions) {
 	    "use strict";
 	    var owner = this, prototype = owner.prototype, key, value;
 	    var subclass = options.hasOwnProperty('constructor') ? options.constructor : (function subclass() {
@@ -375,7 +375,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var statics = take(options, "statics");
 	    var props = take(options, "props");
 	    subclass.prototype = create(owner.prototype, options, {constructor: subclass});
-	    assign(subclass, {extend: extend}, owner);
+	    assign(subclass, {extend: extend}, owner, staticOptions);
 	    if(props){
 	        Object.defineProperties(subclass.prototype, props);
 	    }
@@ -690,7 +690,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	Component.prototype = {
 	    constructor: Component,
-	    monitors: {},
 	    render: function(ctx, content){
 	        "use strict";
 	        throw new Error("Not implemented");
@@ -730,7 +729,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                            events[eventName] = value;
 	                        }
 	                    }
-	                    else if (value !== initial && !utils.isEqual(value, initial)) {
+	                    else if (value !== initial) {
 	                        state[key] = value;
 	                        changes[key] = {current: value, previous: initial};
 	                        dirty = true;
@@ -744,11 +743,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	            }
 	        }
-	        var monitors = this.monitors;
 	        if(dirty && !silent){
 	            if(changeCount) {
 	                for (var k in changes) {
-	                    if (changes.hasOwnProperty(k) && k in monitors) {
+	                    if (changes.hasOwnProperty(k)) {
 	                        this.trigger("change:" + k, changes[k]);
 	                    }
 	                }
@@ -2770,6 +2768,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	});
 
 	function define(name, defn){
+	    "use strict";
 	    fieldRegistry[name] = Type.extend(defn);
 	}
 
@@ -2817,10 +2816,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	});
 
+
 	module.exports = {
 	    define: define,
-	    Field: Field
-	}
+	    Field: Field,
+	    mapWidget: function (widget, field) {
+	        "use strict";
+	        fieldWidgetMapping[field] = widget;
+	    }
+	};
 
 /***/ }
 /******/ ])

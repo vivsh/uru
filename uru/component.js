@@ -26,7 +26,6 @@ function Component(attrs, owner){
 
 Component.prototype = {
     constructor: Component,
-    monitors: {},
     render: function(ctx, content){
         "use strict";
         throw new Error("Not implemented");
@@ -66,7 +65,7 @@ Component.prototype = {
                             events[eventName] = value;
                         }
                     }
-                    else if (value !== initial && !utils.isEqual(value, initial)) {
+                    else if (value !== initial) {
                         state[key] = value;
                         changes[key] = {current: value, previous: initial};
                         dirty = true;
@@ -80,11 +79,10 @@ Component.prototype = {
                 }
             }
         }
-        var monitors = this.monitors;
         if(dirty && !silent){
             if(changeCount) {
                 for (var k in changes) {
-                    if (changes.hasOwnProperty(k) && k in monitors) {
+                    if (changes.hasOwnProperty(k)) {
                         this.trigger("change:" + k, changes[k]);
                     }
                 }

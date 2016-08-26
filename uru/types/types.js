@@ -103,6 +103,7 @@ var Type = utils.extend.call(Field, {
 });
 
 function define(name, defn){
+    "use strict";
     fieldRegistry[name] = Type.extend(defn);
 }
 
@@ -150,7 +151,12 @@ define("list", {
     }
 });
 
+
 module.exports = {
     define: define,
-    Field: Field
-}
+    Field: Field,
+    mapWidget: function (widget, field) {
+        "use strict";
+        fieldWidgetMapping[field] = widget;
+    }
+};

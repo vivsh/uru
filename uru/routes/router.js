@@ -1,5 +1,5 @@
 
-var routes = require("./routes"), utils = require("../utils");
+var routes = require("./routes"), utils = require("../utils"), Component = require("../component");
 
 
 function createHandler(self, value){
@@ -21,7 +21,7 @@ Entry.prototype.join = function (other) {
 }
 
 
-var Router = u.Component.extend({
+var Router = Component.extend({
     routes: {},
     initialize: function () {
         "use strict";
@@ -59,14 +59,12 @@ var Router = u.Component.extend({
         });
 
         this.on("mount", function(event){
-            "use strict";
             if(event.source.getParent() === self && struts.isRouted(event.source.name)){
                 self.processMount(self.request, event.source);
             }
         })
 
         this.on("unmount", function(event){
-            "use strict";
             if(event.source.getParent() === self && struts.isRouted(event.source.name)){
                 self.processUnmount(self.request, event.source);
             }
@@ -85,12 +83,6 @@ var Router = u.Component.extend({
     onUnmount: function () {
         "use strict";
       this.router.stop();
-    },
-    onSwitch: function(ctx){
-        "use strict";
-    },
-    transform: function (ctx, content) {
-        return content;
     },
     processMount: function(request, obj){
         "use strict";
@@ -352,5 +344,4 @@ module.exports = {
     page: page,
     pages: routes.links,
     Page: Page,
-    view:view
 }

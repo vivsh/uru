@@ -1,6 +1,6 @@
 
 
-var pattern = require("../pattern"), utils = require("../utils"), dom = require("../dom");
+var pattern = require("../pattern"), utils = require("../utils"), dom = require("../dom"), nodes = require("../nodes");
 
 
 var routerSet = [], monitorRoutes = false,
@@ -33,7 +33,7 @@ function handleRoute(event){
             event.stopImmediatePropagation();
         }else{
             //pushState triggers no event. Hence, this call is needed
-            u.redraw(true);
+            nodes.redraw(true);
         }
         result.func(result.args);
     }else {
@@ -47,7 +47,7 @@ function bindRoute(){
     "use strict";
     window.addEventListener("popstate", function (event) {
         handleRoute(event);
-        u.redraw();
+        nodes.redraw();
     });
 }
 
@@ -149,7 +149,7 @@ function Router(linkMap, root){
             routes.push({link: ln, func: value});
         }
     }
-    u.redraw();//redraw is needed because links are changed
+    nodes.redraw();//redraw is needed because links are changed
 }
 
 
@@ -242,7 +242,7 @@ function mount(){
         if(target.tagName === 'A' && target.href && !isLocalUrl(target) && !utils.isExternalUrl(target.href)){
             event.preventDefault();
             navigateRoute(target.href);
-            u.redraw();
+            nodes.redraw();
         }
     }, false);
 }
