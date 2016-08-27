@@ -1123,15 +1123,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.el = null;
 	        this.owner = null;
 	    },
-	    patch: function(stack, src){
+	    patch: function(stack, src, owner){
 	        "use strict";
-	        var el = src.el, isText = this.type === TEXT_TYPE, owner = src.owner;
+	        var el = src.el, isText = this.type === TEXT_TYPE;//, owner = src.owner;
 	        if(this === src){
 	            throw new Error("Src and this should never be the same");
 	        }
-
 	        this.el = el;
 	        this.owner = owner;
+
+	        if(owner && owner.$tree === this){
+	            owner.$tag.setEl(this);
+	        }
 
 	        if(isText){
 	            if(src.children !== this.children){
@@ -1152,7 +1155,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 
 	        if(!isText){
-	            patchChildNodes(stack, this.el, src.owner, src.children, this.children);
+	            patchChildNodes(stack, this.el, owner, src.children, this.children);
 	        }
 
 	        src.owner = null;
@@ -1281,6 +1284,36 @@ return /******/ (function(modules) { // webpackBootstrap
 	        // parent = document.createDocumentFragment();
 	        pushChildNodes(stack, parent, this.component, this.children, 'dst');
 	    },
+	    replace: function (stack, src, owner) {
+	        "use strict";
+
+	        var component = this.component = new this.type(this.attrs, owner), tree;
+	        component.$tag = this;
+	        component.$lastUpdate = updateId;
+	        this.owner = owner;
+
+	        if(component.hasChanged){
+	            component.hasChanged();
+	        }
+
+	        this.render();
+
+	        this.el = null;
+	        // parent = document.createDocumentFragment();
+	        if(src.component) {
+	            src.component.$disown();
+	            tree = src.component.$tree;
+	        }else{
+	            tree = src;
+	        }
+	        stack.push({
+	            src: tree,
+	            dst: this.component.$tree,
+	            owner: this.component,
+	            parent: src.el.parentNode
+	        });
+
+	    },
 	    mount: function () {
 	        "use strict";
 
@@ -1299,7 +1332,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.children = null;
 	        this.owner = null;
 	    },
-	    patch: function(stack, src){
+	    patch: function(stack, src, owner){
 	        "use strict";
 	        if(this === src){
 	            return;
@@ -1328,7 +1361,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	                if (component.$lastUpdate !== drawId && component.hasChanged && component.hasChanged()) {
 	                    tree = component.$tree;
 	                    content = component.$tag.render();
-	                    // console.log(tree, content);
 	                    if(false){
 	                        patch(content, null, tree.errorRoot);
 	                    }else{
@@ -1410,11 +1442,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	                componentError(dst.component, e);
 	            }
 	        }else if(src.type !== dst.type){
-	            dst.tenant = src;
-	            pushChildNodes(stack, parent, owner, [dst], 'dst');//create
-	            pushChildNodes(stack, parent, owner, [src], 'src');//delete
+	            if(dst instanceof ComponentNode){
+	                dst.replace(stack, src, owner);
+	            }else {
+	                pushChildNodes(stack, parent, owner, [dst], 'dst');//create
+	                pushChildNodes(stack, parent, owner, [src], 'src');//delete
+	            }
 	        }else{
-	            dst.patch(stack, src);
+	            dst.patch(stack, src, owner);
 	        }
 	    }
 
