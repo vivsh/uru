@@ -1,6 +1,6 @@
 {
   "name": "uru",
-  "version": "0.3.14",
+  "version": "0.3.15",
   "description": "virtual-dom library",
   "main": "uru/index.js",
   "scripts": {
