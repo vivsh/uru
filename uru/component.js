@@ -9,6 +9,7 @@ function Component(attrs, owner){
     "use strict";
     //can't call initialize from here as ownComponent should always be called from here.
     attrs = utils.merge({}, this.context, attrs);
+    this.$children = [];
     this.$events = {};
     this.context = {};
     this.$dirty = true;
@@ -120,12 +121,12 @@ Component.prototype = {
     $disown: function () {
         "use strict";
         var i, owner = this.$owner,
-            children = owner.$children,
-            l = children.length;
+            children = owner.$children, l;
+        l = children.length;
         this.$owner = null;
-        for(i=0; i<l; i++){
-            if(children[i] === this){
-                children.splice(i,1);
+        for (i = 0; i < l; i++) {
+            if (children[i] === this) {
+                children.splice(i, 1);
                 return;
             }
         }

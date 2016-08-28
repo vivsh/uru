@@ -4,18 +4,21 @@ var utils = require("../utils"), errors = require("./errors");
 var fieldRegistry = {};
 
 var fieldWidgetMapping = {
-    string: "string",
-    boolean: "checkbox",
-    number: "number"
+    string: "text-input",
+    boolean: "checkbox-input",
+    number: "number-input"
 }
 
 function Field(options){
     "use strict";
     options = options || {};
-    var type = fieldRegistry[options.type || 'string'];
+    var typeName = options.type || "string";
+    var type = fieldRegistry[typeName];
     if(!type){
         throw new Error("Unknown field type: "+ options.type);
     }
+    delete options.type;
+    options.widget = options.widget || fieldWidgetMapping[typeName] || "text-input";
     return new type(options);
 }
 
@@ -37,7 +40,7 @@ var Type = utils.extend.call(Field, {
         if(this.super.constructor !== Type){
             this.super.constructor.call(this, arguments);
         }
-        this.widget = "text";
+        this.widget = "text-input";
         this.layout = "vertical";
         utils.assign(this, options);
     },
@@ -104,13 +107,23 @@ var Type = utils.extend.call(Field, {
 
 function define(name, defn){
     "use strict";
-    fieldRegistry[name] = Type.extend(defn);
+    var factory = Type.extend(defn);
+    fieldRegistry[name] = factory;
+    factory.prototype.type = name;
+    return factory;
 }
 
 define("integer", {
     clean: function (value) {
             "use strict";
         return parseInt(value);
+    }
+});
+
+define("boolean", {
+    clean: function (value) {
+        "use strict";
+        return !!value;
     }
 });
 

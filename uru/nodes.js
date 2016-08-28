@@ -351,30 +351,6 @@ DomNode.prototype = {
 };
 
 
-function ownComponent(owner, child){
-    "use strict";
-    var children = owner.$children || (owner.$children = []);
-    if(child.$owner){
-        disownComponent(child);
-    }
-    child.$owner = owner;
-    children.push(child);
-}
-
-function disownComponent(child){
-    "use strict";
-    var i, owner = child.$owner,
-        children = owner.$children,
-        l = children.length;
-    child.$owner = null;
-    for(i=0; i<l; i++){
-        if(children[i] === child){
-            children.splice(i,1);
-            return;
-        }
-    }
-}
-
 function clone(node){
     "use strict";
     //might have issues with directives
@@ -465,25 +441,23 @@ ComponentNode.prototype = {
     },
     replace: function (stack, src, owner) {
         "use strict";
-        var component = this.component = new this.type(this.attrs, owner), tree;
+        var component = this.component = new this.type(this.attrs, owner), tree, i;
         component.$tag = this;
         component.$lastUpdate = updateId;
         this.owner = owner;
-
         if(component.hasChanged){
             component.hasChanged();
         }
-
         this.render();
 
         this.el = null;
-        // parent = document.createDocumentFragment();
         if(src.component) {
-            src.component.$disown();
-            this.component.$children = src.component.$children;
-            src.component.$children = [];
-            src.component.$tag = null;
             tree = src.component.$tree;
+            src.component.$disown();
+            src.component.$tag = null;
+            src.owner = null;
+            src.children = null;
+            src.component = null;
         }else{
             tree = src;
         }
@@ -521,6 +495,9 @@ ComponentNode.prototype = {
             return;
         }
         var comp = this.component = src.component;
+        if(comp.$owner !== owner){
+            comp.$own(owner);
+        }
         comp.$tag = this;
         comp.set(this.attrs);
         this.el = src.el;
@@ -528,7 +505,7 @@ ComponentNode.prototype = {
         //inclusion should not be copied here. This way only fresh content is rendered.
         comp.$dirty = true;
         this.owner = src.owner;
-
+        src.children = null;
         src.component = null;
         src.owner = null;
         src.el = null;
@@ -593,7 +570,7 @@ function patch(target, current, rootElement, before){
         dst: target,
         owner: (current && current.owner) || rootComponent.component,
         parent:current ? current.el.parentNode : document.createDocumentFragment()
-    }, stack = [origin], item, src, dst, parent, owner;
+    }, stack = [origin], item, src, dst, parent, owner, temp;
 
     var mounts = [], unmounts = [], updates = [], deletes = [], i, l, child, error;
 
@@ -607,7 +584,7 @@ function patch(target, current, rootElement, before){
         dst = item.dst;
         parent = item.parent;
         owner = item.owner;
-
+        temp = null;
         if(!dst){
             if(src.component){
                 deletes.push(src.component);
@@ -626,7 +603,14 @@ function patch(target, current, rootElement, before){
             }
         }else if(src.type !== dst.type){
             if(dst instanceof ComponentNode){
+                if(src.component){
+                    deletes.push(src.component);
+                    src.component.$unmounted();
+                }
                 dst.replace(stack, src, owner);
+                if(dst.component){
+                    mounts.push(dst.component);
+                }
             }else {
                 pushChildNodes(stack, parent, owner, [dst], 'dst');//create
                 pushChildNodes(stack, parent, owner, [src], 'src');//delete
@@ -736,6 +720,7 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
 rootComponent = new ComponentNode();
 rootComponent.component = {$tag: rootComponent, $name: "_root", name: "_root"};
 emitter.enhance(rootComponent.component);
+
 
 function update(){
     "use strict";

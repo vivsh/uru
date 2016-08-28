@@ -62,158 +62,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    dom = __webpack_require__(4),
 	    emitter = __webpack_require__(5),
 	    stringify = __webpack_require__(6),
-	    types = __webpack_require__(7);
-	    // routes = require("./routes");
-
-
-
-	var components = {}, directives = {};
-
-	function parseTag(value, attrs){
-	    "use strict";
-	    var parts = value.split(/([\.#]?[^\s#.]+)/), tag = "div", history = {}, classes = [], item;
-
-	    while(parts.length){
-	        item = parts.shift();
-	        if(item){
-	            if(item.charAt(0)==="."){
-	                item = item.substr(1);
-	                if(!(item in history)) {
-	                    classes.push(item);
-	                    history[item] = 1;
-	                }
-	            }else if(item.charAt(0)==="#"){
-	                item = item.substr(1);
-	                attrs.id = item;
-	            }else{
-	                tag = item;
-	            }
-	        }
-	    }
-
-	    if(classes.length){
-	        if(("class" in attrs) || ("classes" in attrs)){
-	            attrs['class'] = dom.classes(classes, attrs['class'], attrs.classes);
-	            delete attrs.classes;
-	        }else{
-	            attrs['class'] = classes.join(" ");
-	        }
-	    }
-
-	    return tag;
-	}
-
-	function uru(tagName){
-	    "use strict";
-	    var result, key, name, i = 0, children = [], stack, item, attrs;
-
-	    stack = Array.prototype.slice.call(arguments, 1);
-
-	    attrs = utils.merge({}, utils.isPlainObject(stack[0]) ? stack.shift() : null);
-
-	    if(attrs.hasOwnProperty("if") && !attrs.if){
-	        return null;
-	    }
-	    delete attrs.if;
-
-	    while(stack.length){
-	        item = stack.shift();
-	        if(utils.isArray(item)){
-	            stack.unshift.apply(stack, item);
-	        }else if(item != null){ //jshint ignore:line
-	            if(!(item instanceof nodes.DomNode) && !(item instanceof nodes.ComponentNode)){
-	                if(typeof item === 'object' && typeof item.render === 'function'){
-	                    item = item.render();
-	                    stack.unshift(item);
-	                    continue;
-	                }else{
-	                    item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
-	                }
-	            }
-	            children.push(item);
-	            item.index = i;
-	            i += 1;
-	        }
-	    }
-
-	    if(typeof tagName !== 'function'){
-	        tagName = parseTag(tagName, attrs);
-	        if(tagName in components){
-	            tagName = components[tagName];
-	        }
-	    }
-
-	    if(typeof tagName === 'function'){
-	        if(!(tagName.prototype instanceof Component)){
-	            result = tagName(attrs, children);
-	        }else{
-	            result = new nodes.ComponentNode(tagName, attrs, children);
-	        }
-	    }else{
-	        if(tagName.charAt(0) === "-"){
-	            tagName = tagName.substr(1);
-	        }
-	        result = new nodes.DomNode(tagName, attrs, children);
-	    }
-
-	    if(attrs){
-	        if(attrs.hasOwnProperty("key")){
-	            result.key = attrs.key;
-	            delete attrs.key;
-	        }
-	        for(key in directives){
-	            if(directives.hasOwnProperty(key) && key in attrs){
-	                result = directives[key](attrs[key], result);
-	                delete attrs[key];
-	            }
-	        }
-	    }
-
-	    return result;
-	}
-
-	uru.directive = function registerDirective(name, func) {
-	    "use strict";
-	    if(arguments.length >= 2){
-	        directives[name] = func;
-	    }
-	    return directives[name];
-	}
-
-
-	uru.component = function registerComponent(name){
-	    "use strict";
-	    var args = Array.prototype.slice.call(arguments, 1);
-
-	    if(args.length === 0){
-	        return components[name];
-	    }
-
-	    var constructor = args.pop(), base = args.length ? components[args.pop()] : Component;
-
-	    if(typeof constructor === 'object'){
-	        constructor = base.extend(constructor);
-	    }
-
-	    components[name] = constructor;
-
-	    constructor.prototype.$name = name;
-	    constructor.prototype.name = name;
-
-	    return constructor;
-	};
+	    uru = __webpack_require__(7),
+	    types = __webpack_require__(8);
 
 
 	function mount(node, element, before){
 	    "use strict";
 	    var frag = nodes.patch(node, null, element, before);
-	    // if(before === true){
-	    //     element.parentNode.replaceChild(element, frag);
-	    // }else if(before){
-	    //     element.insertBefore(frag, before);
-	    // }else{
-	    //     element.appendChild(frag);
-	    // }
 	    return node;
 	}
 
@@ -227,18 +82,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.mount = function(){
 	    "use strict";
 	    var args = arguments;
-	    // nodes.render(function(){
-	        mount.apply(null, args);
-	    // });
+	    mount.apply(null, args);
 	    return args[0];
 	};
 
 	uru.unmount = function(){
 	    "use strict";
 	    var args = arguments;
-	    // nodes.render(function(){
-	        unmount.apply(null, args);
-	    // });
+	    unmount.apply(null, args);
 	};
 
 	function runUru(scope){
@@ -261,7 +112,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 	uru.automount = runUru;
-
 
 	uru.tie = function(attr, callback){
 	    "use strict";
@@ -316,8 +166,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	uru.types = types;
 
 	uru.stringify = stringify.stringify;
-
-	// uru.routes = routes;
 
 	module.exports = uru;
 
@@ -673,6 +521,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    "use strict";
 	    //can't call initialize from here as ownComponent should always be called from here.
 	    attrs = utils.merge({}, this.context, attrs);
+	    this.$children = [];
 	    this.$events = {};
 	    this.context = {};
 	    this.$dirty = true;
@@ -784,12 +633,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    $disown: function () {
 	        "use strict";
 	        var i, owner = this.$owner,
-	            children = owner.$children,
-	            l = children.length;
+	            children = owner.$children, l;
+	        l = children.length;
 	        this.$owner = null;
-	        for(i=0; i<l; i++){
-	            if(children[i] === this){
-	                children.splice(i,1);
+	        for (i = 0; i < l; i++) {
+	            if (children[i] === this) {
+	                children.splice(i, 1);
 	                return;
 	            }
 	        }
@@ -1172,30 +1021,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 
-	function ownComponent(owner, child){
-	    "use strict";
-	    var children = owner.$children || (owner.$children = []);
-	    if(child.$owner){
-	        disownComponent(child);
-	    }
-	    child.$owner = owner;
-	    children.push(child);
-	}
-
-	function disownComponent(child){
-	    "use strict";
-	    var i, owner = child.$owner,
-	        children = owner.$children,
-	        l = children.length;
-	    child.$owner = null;
-	    for(i=0; i<l; i++){
-	        if(children[i] === child){
-	            children.splice(i,1);
-	            return;
-	        }
-	    }
-	}
-
 	function clone(node){
 	    "use strict";
 	    //might have issues with directives
@@ -1286,25 +1111,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	    },
 	    replace: function (stack, src, owner) {
 	        "use strict";
-	        var component = this.component = new this.type(this.attrs, owner), tree;
+	        var component = this.component = new this.type(this.attrs, owner), tree, i;
 	        component.$tag = this;
 	        component.$lastUpdate = updateId;
 	        this.owner = owner;
-
 	        if(component.hasChanged){
 	            component.hasChanged();
 	        }
-
 	        this.render();
 
 	        this.el = null;
-	        // parent = document.createDocumentFragment();
 	        if(src.component) {
-	            src.component.$disown();
-	            this.component.$children = src.component.$children;
-	            src.component.$children = [];
-	            src.component.$tag = null;
 	            tree = src.component.$tree;
+	            src.component.$disown();
+	            src.component.$tag = null;
+	            src.owner = null;
+	            src.children = null;
+	            src.component = null;
 	        }else{
 	            tree = src;
 	        }
@@ -1342,6 +1165,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            return;
 	        }
 	        var comp = this.component = src.component;
+	        if(comp.$owner !== owner){
+	            comp.$own(owner);
+	        }
 	        comp.$tag = this;
 	        comp.set(this.attrs);
 	        this.el = src.el;
@@ -1349,7 +1175,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        //inclusion should not be copied here. This way only fresh content is rendered.
 	        comp.$dirty = true;
 	        this.owner = src.owner;
-
+	        src.children = null;
 	        src.component = null;
 	        src.owner = null;
 	        src.el = null;
@@ -1414,7 +1240,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        dst: target,
 	        owner: (current && current.owner) || rootComponent.component,
 	        parent:current ? current.el.parentNode : document.createDocumentFragment()
-	    }, stack = [origin], item, src, dst, parent, owner;
+	    }, stack = [origin], item, src, dst, parent, owner, temp;
 
 	    var mounts = [], unmounts = [], updates = [], deletes = [], i, l, child, error;
 
@@ -1428,7 +1254,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        dst = item.dst;
 	        parent = item.parent;
 	        owner = item.owner;
-
+	        temp = null;
 	        if(!dst){
 	            if(src.component){
 	                deletes.push(src.component);
@@ -1447,7 +1273,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	        }else if(src.type !== dst.type){
 	            if(dst instanceof ComponentNode){
+	                if(src.component){
+	                    deletes.push(src.component);
+	                    src.component.$unmounted();
+	                }
 	                dst.replace(stack, src, owner);
+	                if(dst.component){
+	                    mounts.push(dst.component);
+	                }
 	            }else {
 	                pushChildNodes(stack, parent, owner, [dst], 'dst');//create
 	                pushChildNodes(stack, parent, owner, [src], 'src');//delete
@@ -1557,6 +1390,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	rootComponent = new ComponentNode();
 	rootComponent.component = {$tag: rootComponent, $name: "_root", name: "_root"};
 	emitter.enhance(rootComponent.component);
+
 
 	function update(){
 	    "use strict";
@@ -2190,11 +2024,164 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ function(module, exports, __webpack_require__) {
 
 	
-	var forms = __webpack_require__(8),
-	    types = __webpack_require__(12),
-	    widgets =__webpack_require__(9),
-	    layouts = __webpack_require__(10),
-	    errors = __webpack_require__(11);
+
+	var utils = __webpack_require__(1),
+	    Component = __webpack_require__(2),
+	    nodes = __webpack_require__(3),
+	    dom = __webpack_require__(4);
+
+
+
+	var components = {}, directives = {};
+
+	function parseTag(value, attrs){
+	    "use strict";
+	    var parts = value.split(/([\.#]?[^\s#.]+)/), tag = "div", history = {}, classes = [], item;
+
+	    while(parts.length){
+	        item = parts.shift();
+	        if(item){
+	            if(item.charAt(0)==="."){
+	                item = item.substr(1);
+	                if(!(item in history)) {
+	                    classes.push(item);
+	                    history[item] = 1;
+	                }
+	            }else if(item.charAt(0)==="#"){
+	                item = item.substr(1);
+	                attrs.id = item;
+	            }else{
+	                tag = item;
+	            }
+	        }
+	    }
+
+	    if(classes.length){
+	        if(("class" in attrs) || ("classes" in attrs)){
+	            attrs['class'] = dom.classes(classes, attrs['class'], attrs.classes);
+	            delete attrs.classes;
+	        }else{
+	            attrs['class'] = classes.join(" ");
+	        }
+	    }
+
+	    return tag;
+	}
+
+	function uru(tagName){
+	    "use strict";
+	    var result, key, name, i = 0, children = [], stack, item, attrs;
+
+	    stack = Array.prototype.slice.call(arguments, 1);
+
+	    attrs = utils.merge({}, utils.isPlainObject(stack[0]) ? stack.shift() : null);
+
+	    if(attrs.hasOwnProperty("if") && !attrs.if){
+	        return null;
+	    }
+	    delete attrs.if;
+
+	    while(stack.length){
+	        item = stack.shift();
+	        if(utils.isArray(item)){
+	            stack.unshift.apply(stack, item);
+	        }else if(item != null){ //jshint ignore:line
+	            if(!(item instanceof nodes.DomNode) && !(item instanceof nodes.ComponentNode)){
+	                if(typeof item === 'object' && typeof item.render === 'function'){
+	                    item = item.render();
+	                    stack.unshift(item);
+	                    continue;
+	                }else{
+	                    item = new nodes.DomNode(nodes.TEXT_TYPE, null, "" + item, i);
+	                }
+	            }
+	            children.push(item);
+	            item.index = i;
+	            i += 1;
+	        }
+	    }
+
+	    if(typeof tagName !== 'function'){
+	        tagName = parseTag(tagName, attrs);
+	        if(tagName in components){
+	            tagName = components[tagName];
+	        }
+	    }
+
+	    if(typeof tagName === 'function'){
+	        if(!(tagName.prototype instanceof Component)){
+	            result = tagName(attrs, children);
+	        }else{
+	            result = new nodes.ComponentNode(tagName, attrs, children);
+	        }
+	    }else{
+	        if(tagName.charAt(0) === "-"){
+	            tagName = tagName.substr(1);
+	        }
+	        result = new nodes.DomNode(tagName, attrs, children);
+	    }
+
+	    if(attrs){
+	        if(attrs.hasOwnProperty("key")){
+	            result.key = attrs.key;
+	            delete attrs.key;
+	        }
+	        for(key in directives){
+	            if(directives.hasOwnProperty(key) && key in attrs){
+	                result = directives[key](attrs[key], result);
+	                delete attrs[key];
+	            }
+	        }
+	    }
+
+	    return result;
+	}
+
+
+	uru.directive = function registerDirective(name, func) {
+	    "use strict";
+	    if(arguments.length >= 2){
+	        directives[name] = func;
+	    }
+	    return directives[name];
+	}
+
+
+	uru.component = function registerComponent(name){
+	    "use strict";
+	    var args = Array.prototype.slice.call(arguments, 1);
+
+	    if(args.length === 0){
+	        return components[name];
+	    }
+
+	    var constructor = args.pop(), base = args.length ? components[args.pop()] : Component;
+
+	    if(typeof constructor === 'object'){
+	        constructor = base.extend(constructor);
+	    }
+
+	    components[name] = constructor;
+
+	    constructor.prototype.$name = name;
+	    constructor.prototype.name = name;
+
+	    return constructor;
+	};
+
+
+	module.exports = uru;
+
+/***/ },
+/* 8 */
+/***/ function(module, exports, __webpack_require__) {
+
+	
+	var forms = __webpack_require__(9),
+	    types = __webpack_require__(13),
+	    widgets =__webpack_require__(10),
+	    layouts = __webpack_require__(11),
+	    errors = __webpack_require__(12);
 
 	module.exports = {
 	    define: types.define,
@@ -2207,15 +2194,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 /***/ },
-/* 8 */
+/* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
 	var utils = __webpack_require__(1),
-	    widgets = __webpack_require__(9),
-	    layouts = __webpack_require__(10),
-	    errors = __webpack_require__(11),
-	    types = __webpack_require__(12);
+	    widgets = __webpack_require__(10),
+	    layouts = __webpack_require__(11),
+	    errors = __webpack_require__(12),
+	    types = __webpack_require__(13);
 
 
 	var BoundField = utils.extend.call(Object, {
@@ -2224,10 +2211,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.form = form;
 	        this.field = field;
 	        this.name = field.name;
+	        this.type = field.type;
 	        this.id = "id_" + this.name;
 	        this.label = field.getLabel();
-	        var widgetFactory = widgets.widget(field.widget);
-	        this.widget = new widgetFactory();
+	        var widget = field.widget;
+	        if(utils.isString(widget)){
+	            widget = {type: widget};
+	        }
+	        var widgetFactory = widgets.widget(widget.type);
+	        this.widget = new widgetFactory(widget);
 	        this.layout = layouts.layout(field.layout) || layouts.layout("default");
 	    },
 	    props:{
@@ -2260,6 +2252,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	        }
 	    },
+	    isEmpty: function () {
+	        "use strict";
+	        return !(this.name in this.form.cleanedData);
+	    },
 	    clean: function (value) {
 	        "use strict";
 	        var field = this.field;
@@ -2275,12 +2271,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var field = this.field;
 	        field.validate(value);
 	    },
+	    isValid: function () {
+	        "use strict";
+	        return this.errors.length === 0;
+	    },
+	    buildAttrs: function (attrs) {
+	        "use strict";
+	        return attrs;
+	    },
 	    render: function () {
 	        "use strict";
+	        var value = this.value;
+	        var attrs = this.buildAttrs(utils.assign({
+	            name: this.name,
+	            id: this.id,
+	        }, this.widget.attrs));
+	        // if(!this.isEmpty()){
+	        //     attrs.value = value;
+	        // }
+	        var widget = this.widget.render(attrs);
 	        var info = {
-	            widget:  this.widget,
+	            widget: widget,
 	            errors: this.errors,
-	            value: this.value,
+	            value: value,
 	            label: this.label,
 	            name: this.name,
 	            field: this,
@@ -2304,6 +2317,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    constructor:function Form(options) {
 	        "use strict";
 	        this._errors = new errors.ErrorDict();
+	        this.cleanedData = {};
 	        this.changedData = {$count: 0};
 	        this.fieldSilence = {};
 	        this.silent = true;
@@ -2439,7 +2453,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    },
 	    clean: function () {
 	        "use strict";
-	        var pastData = this.cleanedData;
+	        var pastData = this.cleanedData || {};
 	        var fields = this.getFields(), data = this.data, field, value, cleanedData = {}, key, methodName,
 	            fieldNames = {};
 	        var errors = this._errors, self = this;
@@ -2493,27 +2507,45 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 /***/ },
-/* 9 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
 
-	var utils = __webpack_require__(1);
+	var utils = __webpack_require__(1), u = __webpack_require__(7);
 
 	var widgetRegistry = {};
 
 
 	var Widget = utils.extend.call(Object, {
+	    options: {
+
+	    },
 	    constructor: function Widget(options) {
 	        "use strict";
-	        utils.assign(this, {}, options);
+	        this.options = utils.assign({}, this.constructor.prototype.options, options);
+	        this.attrs = this.options.attrs || {};
 	    },
 	    read: function(name, data){
 	        "use strict";
 	        return data[name];
+	    },
+	    render: function (ctx) {
+	        "use strict";
+	        throw new Error("Not Implemented");
 	    }
 	});
 
+	var Input = Widget.extend({
+	    render: function (ctx) {
+	        "use strict";
+	        var type = this.type.substr(0, this.type.length-6);
+	        var attrs = utils.assign({
+	            type: type,
+	        }, ctx);
+	        return u("-input", attrs);
+	    }
+	})
 
 	function widget(name, definition){
 	    "use strict";
@@ -2526,7 +2558,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            base = Widget;
 	        }
 	        var class_ = typeof definition === 'function' ? definition : base.extend(definition);
-	        class_.prototype.name = name;
+	        class_.prototype.type = name;
 	        widgetRegistry[name] = class_;
 	        return class_;
 	    }else{
@@ -2536,12 +2568,17 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	(function () {
 	    "use strict";
-	    var commonWidgets = ['checkbox', 'radio', 'select', 'text', 'date', 'time', 'datetime', 'number', 'email', 'tel'],
+	    var commonWidgets = ['checkbox', 'radio', 'select', 'text', 'date', 'time', 'datetime', 'number', 'email', 'tel', 'password'],
 	        name;
 	    for(var i=0; i<commonWidgets.length; i++){
 	        name = commonWidgets[i];
-	        widget(name, {});
+	        widget(name+"-input", Input.extend({}));
 	    }
+	    widget("text-area", {
+	       render: function (attrs) {
+	           return u("-textarea", attrs);
+	       }
+	    });
 	}());
 
 	module.exports = {
@@ -2550,7 +2587,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 /***/ },
-/* 10 */
+/* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
@@ -2573,7 +2610,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 /***/ },
-/* 11 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
@@ -2699,27 +2736,30 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 12 */
+/* 13 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
-	var utils = __webpack_require__(1), errors = __webpack_require__(11);
+	var utils = __webpack_require__(1), errors = __webpack_require__(12);
 
 	var fieldRegistry = {};
 
 	var fieldWidgetMapping = {
-	    string: "string",
-	    boolean: "checkbox",
-	    number: "number"
+	    string: "text-input",
+	    boolean: "checkbox-input",
+	    number: "number-input"
 	}
 
 	function Field(options){
 	    "use strict";
 	    options = options || {};
-	    var type = fieldRegistry[options.type || 'string'];
+	    var typeName = options.type || "string";
+	    var type = fieldRegistry[typeName];
 	    if(!type){
 	        throw new Error("Unknown field type: "+ options.type);
 	    }
+	    delete options.type;
+	    options.widget = options.widget || fieldWidgetMapping[typeName] || "text-input";
 	    return new type(options);
 	}
 
@@ -2741,7 +2781,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(this.super.constructor !== Type){
 	            this.super.constructor.call(this, arguments);
 	        }
-	        this.widget = "text";
+	        this.widget = "text-input";
 	        this.layout = "vertical";
 	        utils.assign(this, options);
 	    },
@@ -2808,13 +2848,23 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function define(name, defn){
 	    "use strict";
-	    fieldRegistry[name] = Type.extend(defn);
+	    var factory = Type.extend(defn);
+	    fieldRegistry[name] = factory;
+	    factory.prototype.type = name;
+	    return factory;
 	}
 
 	define("integer", {
 	    clean: function (value) {
 	            "use strict";
 	        return parseInt(value);
+	    }
+	});
+
+	define("boolean", {
+	    clean: function (value) {
+	        "use strict";
+	        return !!value;
 	    }
 	});
 

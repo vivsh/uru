@@ -12,10 +12,15 @@ var BoundField = utils.extend.call(Object, {
         this.form = form;
         this.field = field;
         this.name = field.name;
+        this.type = field.type;
         this.id = "id_" + this.name;
         this.label = field.getLabel();
-        var widgetFactory = widgets.widget(field.widget);
-        this.widget = new widgetFactory();
+        var widget = field.widget;
+        if(utils.isString(widget)){
+            widget = {type: widget};
+        }
+        var widgetFactory = widgets.widget(widget.type);
+        this.widget = new widgetFactory(widget);
         this.layout = layouts.layout(field.layout) || layouts.layout("default");
     },
     props:{
@@ -48,6 +53,10 @@ var BoundField = utils.extend.call(Object, {
             }
         }
     },
+    isEmpty: function () {
+        "use strict";
+        return !(this.name in this.form.cleanedData);
+    },
     clean: function (value) {
         "use strict";
         var field = this.field;
@@ -63,12 +72,29 @@ var BoundField = utils.extend.call(Object, {
         var field = this.field;
         field.validate(value);
     },
+    isValid: function () {
+        "use strict";
+        return this.errors.length === 0;
+    },
+    buildAttrs: function (attrs) {
+        "use strict";
+        return attrs;
+    },
     render: function () {
         "use strict";
+        var value = this.value;
+        var attrs = this.buildAttrs(utils.assign({
+            name: this.name,
+            id: this.id,
+        }, this.widget.attrs));
+        // if(!this.isEmpty()){
+        //     attrs.value = value;
+        // }
+        var widget = this.widget.render(attrs);
         var info = {
-            widget:  this.widget,
+            widget: widget,
             errors: this.errors,
-            value: this.value,
+            value: value,
             label: this.label,
             name: this.name,
             field: this,
@@ -92,6 +118,7 @@ var Form = utils.extend.call(Object, {
     constructor:function Form(options) {
         "use strict";
         this._errors = new errors.ErrorDict();
+        this.cleanedData = {};
         this.changedData = {$count: 0};
         this.fieldSilence = {};
         this.silent = true;
@@ -227,7 +254,7 @@ var Form = utils.extend.call(Object, {
     },
     clean: function () {
         "use strict";
-        var pastData = this.cleanedData;
+        var pastData = this.cleanedData || {};
         var fields = this.getFields(), data = this.data, field, value, cleanedData = {}, key, methodName,
             fieldNames = {};
         var errors = this._errors, self = this;
