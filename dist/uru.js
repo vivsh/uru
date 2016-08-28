@@ -1286,7 +1286,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    },
 	    replace: function (stack, src, owner) {
 	        "use strict";
-
 	        var component = this.component = new this.type(this.attrs, owner), tree;
 	        component.$tag = this;
 	        component.$lastUpdate = updateId;
@@ -1302,6 +1301,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        // parent = document.createDocumentFragment();
 	        if(src.component) {
 	            src.component.$disown();
+	            this.component.$children = src.component.$children;
+	            src.component.$children = [];
+	            src.component.$tag = null;
 	            tree = src.component.$tree;
 	        }else{
 	            tree = src;
@@ -1318,13 +1320,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	        "use strict";
 
 	    },
-	    destroy: function (stack, nodelete) {
+	    destroy: function (stack, nodelete, shallow) {
 	        "use strict";
 	        var action = nodelete ? CLEAN : null;
 
 	        this.component.$disown();
 
-	        pushChildNodes(stack, this.el, this.component, this.children, 'src', action);
+	        if(!shallow) {
+	            pushChildNodes(stack, this.el, this.component, this.children, 'src', action);
+	        }
 
 	        this.component.$tag = null;
 	        this.component = null;

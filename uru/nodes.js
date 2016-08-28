@@ -465,7 +465,6 @@ ComponentNode.prototype = {
     },
     replace: function (stack, src, owner) {
         "use strict";
-
         var component = this.component = new this.type(this.attrs, owner), tree;
         component.$tag = this;
         component.$lastUpdate = updateId;
@@ -481,6 +480,9 @@ ComponentNode.prototype = {
         // parent = document.createDocumentFragment();
         if(src.component) {
             src.component.$disown();
+            this.component.$children = src.component.$children;
+            src.component.$children = [];
+            src.component.$tag = null;
             tree = src.component.$tree;
         }else{
             tree = src;
@@ -497,13 +499,15 @@ ComponentNode.prototype = {
         "use strict";
 
     },
-    destroy: function (stack, nodelete) {
+    destroy: function (stack, nodelete, shallow) {
         "use strict";
         var action = nodelete ? CLEAN : null;
 
         this.component.$disown();
 
-        pushChildNodes(stack, this.el, this.component, this.children, 'src', action);
+        if(!shallow) {
+            pushChildNodes(stack, this.el, this.component, this.children, 'src', action);
+        }
 
         this.component.$tag = null;
         this.component = null;
