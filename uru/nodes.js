@@ -177,10 +177,10 @@ function domAttributes(node, values) {
             value = values[key];
             if(key.substr(0, 2) === 'on'){
                 events.push([key.substr(2), value]);
-            }else if(key === 'classes' || key === 'class'){
+            }else if(key === 'class'){
                 el.className = dom.classes(value);
             }else if(key === 'value' && el.tagName === 'TEXTAREA'){
-                el.value = value;
+                el.value = value || "";
             }else if(key === "show"){
                 domDisplay(el, value);
             }else if ((value === null || value === undefined) && !(key in properties)) {
@@ -190,7 +190,7 @@ function domAttributes(node, values) {
                 if (key === "style") {
                     domStyle(el, value);
                 } else if (key in properties || type === 'function' || type === 'object') {
-                    el[key] = value;
+                    el[key] = value == null ? "" : value;//jshint ignore:line
                 } else {
                     if(type === 'boolean'){
                         el[key] = value;

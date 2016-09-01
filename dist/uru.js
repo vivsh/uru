@@ -847,10 +847,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	            value = values[key];
 	            if(key.substr(0, 2) === 'on'){
 	                events.push([key.substr(2), value]);
-	            }else if(key === 'classes' || key === 'class'){
+	            }else if(key === 'class'){
 	                el.className = dom.classes(value);
 	            }else if(key === 'value' && el.tagName === 'TEXTAREA'){
-	                el.value = value;
+	                el.value = value || "";
 	            }else if(key === "show"){
 	                domDisplay(el, value);
 	            }else if ((value === null || value === undefined) && !(key in properties)) {
@@ -860,7 +860,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                if (key === "style") {
 	                    domStyle(el, value);
 	                } else if (key in properties || type === 'function' || type === 'object') {
-	                    el[key] = value;
+	                    el[key] = value == null ? "" : value;//jshint ignore:line
 	                } else {
 	                    if(type === 'boolean'){
 	                        el[key] = value;
@@ -1672,9 +1672,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        tag = item.tagName;
 	        if(tag === "INPUT" || tag === 'SELECT' || tag === 'TEXTAREA'){
 	            collector(item, getValue(item));
-	            continue;
+	        }else {
+	            stack.push.apply(stack, item.childNodes);
 	        }
-	        stack.push.apply(stack, el.childNodes);
 	    }
 	}
 
@@ -1695,6 +1695,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	        stack.push.apply(stack, el.childNodes);
 	    }
+	    return result;
+	}
+
+	function getFormData(el) {
+	    "use strict";
+	    var result = {};
+	    function callback(elem, value) {
+	        var name = elem.name, temp;
+	        if(name in result){
+	            temp = result[name];
+	            if(!utils.isArray(temp)){
+	                result[name] = [temp];
+	            }
+	            if(value) {
+	                result[name].push(value);
+	            }
+	        }else{
+	            if(value){
+	                result[name] = value;
+	            }
+	        }
+	    }
+	    collectValues(el, callback);
 	    return result;
 	}
 
@@ -1789,7 +1812,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    setValue: setValue,
 	    closest: closestNode,
 	    collectValues: collectValues,
-	    populateValues: populateValues
+	    populateValues: populateValues,
+	    getFormData: getFormData
 	};
 
 
@@ -2190,6 +2214,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    widget: widgets.widget,
 	    Widget: widgets.Widget,
 	    layout: layouts.layout,
+	    clearLayouts: layouts.clear,
+	    clearWidgets: widgets.clear,
 	    ValidationError: errors.ValidationError
 	};
 
@@ -2202,7 +2228,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    widgets = __webpack_require__(10),
 	    layouts = __webpack_require__(11),
 	    errors = __webpack_require__(12),
-	    types = __webpack_require__(13);
+	    types = __webpack_require__(13),
+	    dom = __webpack_require__(4),
+	    nodes = __webpack_require__(3);
 
 
 	var BoundField = utils.extend.call(Object, {
@@ -2215,12 +2243,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.id = "id_" + this.name;
 	        this.label = field.getLabel();
 	        var widget = field.widget;
-	        if(utils.isString(widget)){
-	            widget = {type: widget};
-	        }
 	        var widgetFactory = widgets.widget(widget.type);
 	        this.widget = new widgetFactory(widget);
-	        this.layout = layouts.layout(field.layout) || layouts.layout("default");
+	        this.layout = layouts.layout(field.layout) || layouts.layout("*");
 	    },
 	    props:{
 	        silent: {
@@ -2254,7 +2279,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    },
 	    isEmpty: function () {
 	        "use strict";
-	        return !(this.name in this.form.cleanedData);
+	        return this.value == null;//jshint ignore:line
 	    },
 	    clean: function (value) {
 	        "use strict";
@@ -2266,10 +2291,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	        return value;
 	    },
-	    validate: function (value) {
+	    validate: function (value, data) {
 	        "use strict";
 	        var field = this.field;
-	        field.validate(value);
+	        field.validate(value, data);
 	    },
 	    isValid: function () {
 	        "use strict";
@@ -2282,15 +2307,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	    render: function () {
 	        "use strict";
 	        var value = this.value;
+	        var widget = this.widget;
 	        var attrs = this.buildAttrs(utils.assign({
-	            name: this.name,
 	            id: this.id,
+	            name: this.name,
+	            value: value,
 	        }, this.widget.attrs));
-	        // if(!this.isEmpty()){
-	        //     attrs.value = value;
-	        // }
-	        var widget = this.widget.render(attrs);
+	        if(this.field.choices){
+	            attrs.choices = this.field.choices;
+	        }
 	        var info = {
+	            attrs: attrs,
 	            widget: widget,
 	            errors: this.errors,
 	            value: value,
@@ -2317,7 +2344,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    constructor:function Form(options) {
 	        "use strict";
 	        this._errors = new errors.ErrorDict();
-	        this.cleanedData = {};
+	        this._cleanedData = {};
 	        this.changedData = {$count: 0};
 	        this.fieldSilence = {};
 	        this.silent = true;
@@ -2332,6 +2359,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.setData(options.data);
 	    },
 	    props: {
+	        cleanedData: {
+	            get: function () {
+	                "use strict";
+	                if(this._dirty){
+	                    this.runClean();
+	                }
+	                return this._cleanedData;
+	            },
+	            enumerable: false
+	        },
 	        errors: {
 	            get: function () {
 	                "use strict";
@@ -2388,6 +2425,36 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	        }
 	    },
+	    valuesSubmitted: function (el) {
+	        "use strict";
+	        var data = dom.getFormData(el), key;
+	        this.setData(data);
+	        this._dirty = true;
+	        this.silent = false;
+	        this.getFields().forEach(function (field) {
+	            field.silent = false;
+	        })
+	        this.runClean(true);
+	        var isValid = this.isValid();
+	        if(!isValid){
+	            nodes.redraw();
+	        }
+	        return isValid;
+	    },
+	    valuesChanged: function (el) {
+	        "use strict";
+	        var data = dom.getFormData(el), key;
+	        this.setData(data);
+	        this.silent = false;
+	        for(key in this.changedData){
+	            if(this.changedData.hasOwnProperty(key) && key.charAt(0) !== '$') {
+	                this[key].silent = false;
+	            }
+	        }
+	        if(this.hasChanged()){
+	            nodes.redraw();
+	        }
+	    },
 	    getFields: function () {
 	        "use strict";
 	        var fields = this.constructor.fields, field, result = [];
@@ -2415,7 +2482,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            field = fields[i];
 	            value = field.widget.read(field.name, data);
 	            initial = field.widget.read(field.name, previous);
-	            if(!utils.isEqual(initial, value)){
+	            if(!utils.isEqual(initial, value)){//jshint ignore: line
 	                changes[field.name] = initial;
 	                this._errors.clear(field.name);
 	                changeCount++;
@@ -2439,11 +2506,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	        "use strict";
 	        return message;
 	    },
-	    runClean: function () {
+	    runClean: function (force) {
 	        "use strict";
 	        var errors = this._errors, self = this;
 	        errors.capture(function () {
-	            self.cleanedData = self.clean();
+	            self._cleanedData = self.clean(force);
 	        }, this);
 	        this._dirty = false;
 	    },
@@ -2451,18 +2518,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	        "use strict";
 	        return this.errors.length === 0;
 	    },
-	    clean: function () {
+	    clean: function (force) {
 	        "use strict";
-	        var pastData = this.cleanedData || {};
-	        var fields = this.getFields(), data = this.data, field, value, cleanedData = {}, key, methodName,
+	        var pastData = this._cleanedData || {};
+	        var fields = this.getFields(), data = this.data, field, value, cleanedData = {}, key, methodName, pastValue,
 	            fieldNames = {};
 	        var errors = this._errors, self = this;
 	        errors.clear('__all__');
-	        this.cleanedData = cleanedData;
+	        this._cleanedData = cleanedData;
 	        for(var i=0; i<fields.length; i++){
 	            field = fields[i];
-	            if(!this.hasChanged(field.name)){
-	                cleanedData[field.name] = pastData[field.name];
+	            pastValue = pastData[field.name];
+	            if(!this.hasChanged(field.name) && !force){
+	                cleanedData[field.name] = pastValue;
 	                continue;
 	            }
 	            errors.clear(field.name);
@@ -2537,12 +2605,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	});
 
 	var Input = Widget.extend({
-	    render: function (ctx) {
+	    render: function (attrs) {
 	        "use strict";
 	        var type = this.type.substr(0, this.type.length-6);
-	        var attrs = utils.assign({
+	        attrs = utils.assign({
 	            type: type,
-	        }, ctx);
+	        }, attrs);
 	        return u("-input", attrs);
 	    }
 	})
@@ -2558,7 +2626,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	            base = Widget;
 	        }
 	        var class_ = typeof definition === 'function' ? definition : base.extend(definition);
-	        class_.prototype.type = name;
+	        Object.defineProperty(class_.prototype, 'type', {
+	            value: name,
+	            configurable: false,
+	            enumerable: false
+	        })
 	        widgetRegistry[name] = class_;
 	        return class_;
 	    }else{
@@ -2568,7 +2640,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	(function () {
 	    "use strict";
-	    var commonWidgets = ['checkbox', 'radio', 'select', 'text', 'date', 'time', 'datetime', 'number', 'email', 'tel', 'password'],
+	    var commonWidgets = ['hidden', 'radio', 'text', 'date', 'time', 'datetime', 'number', 'email', 'tel', 'password'],
 	        name;
 	    for(var i=0; i<commonWidgets.length; i++){
 	        name = commonWidgets[i];
@@ -2579,11 +2651,41 @@ return /******/ (function(modules) { // webpackBootstrap
 	           return u("-textarea", attrs);
 	       }
 	    });
+
+	    widget("checkbox-input", {
+	        render: function (attrs) {
+	            attrs.type = "checkbox";
+	            attrs.checked = !!attrs.value;
+	            attrs.value = "true";
+	            return u("-input", attrs);
+	        }
+	    });
+
+	    widget("select", {
+	        render: function (attrs) {
+	            var choices = attrs.choices;
+	            delete attrs.choices;
+	            return u("-select",
+	                choices.map(function (item) {
+	                    return u("option", {value: item.value}, item.label);
+	                })
+	            );
+	        }
+	    });
+
 	}());
+
+
+	function clearWidgets() {
+	    "use strict";
+	    widgetRegistry = {};
+	}
+
 
 	module.exports = {
 	    widget: widget,
-	    Widget: Widget
+	    Widget: Widget,
+	    clear: clearWidgets
 	};
 
 /***/ },
@@ -2605,9 +2707,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	}
 
-	module.exports = {
-	    layout: layout
+	function clearLayouts() {
+	    "use strict";
+	    layoutRegistry = {};
 	}
+
+	module.exports = {
+	    clear: clearLayouts,
+	    layout: layout
+	};
 
 /***/ },
 /* 12 */
@@ -2704,7 +2812,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	function ValidationError(message, code, name){
 	    "use strict";
 	    var data = message, key, value, list = [];
-	    if(arguments.length === 1){
+	    if(arguments.length === 1 && !utils.isString(message)){
 	        for(key in data){
 	            if(data.hasOwnProperty(key)){
 	                value = data[key];
@@ -2759,7 +2867,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        throw new Error("Unknown field type: "+ options.type);
 	    }
 	    delete options.type;
-	    options.widget = options.widget || fieldWidgetMapping[typeName] || "text-input";
 	    return new type(options);
 	}
 
@@ -2775,15 +2882,44 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return result;
 	}
 
+	Field.mapWidget = function mapFieldToWidget(fieldType, callback) {
+	        "use strict";
+	    fieldWidgetMapping[fieldType] = callback;
+	}
+
 	var Type = utils.extend.call(Field, {
 	    constructor: function Type(options) {
 	            "use strict";
 	        if(this.super.constructor !== Type){
 	            this.super.constructor.call(this, arguments);
 	        }
-	        this.widget = "text-input";
-	        this.layout = "vertical";
-	        utils.assign(this, options);
+	        utils.assign(this, {
+	            required: true,
+	        }, options);
+
+	        var type = this.type;
+
+	        this.layout = this.layout || this.getLayout() || "vertical";
+
+	        if(!this.widget){
+	            var mapping = fieldWidgetMapping[type] || this.getWidget() || fieldWidgetMapping['*'];
+	            this.widget = typeof mapping === 'function' ? mapping(this) : String(mapping);
+	        }
+
+	        if(utils.isString(this.widget)){
+	            this.widget = {type: this.widget};
+	        }
+
+	        var choices = this.choices;
+	        if(utils.isPlainObject(choices)){
+	            var result = [];
+	            for(var key in choices){
+	                if(choices.hasOwnProperty(key)){
+	                    result.push({value: this.toJS(key), label: choices[key]});
+	                }
+	            }
+	            this.choices = result;
+	        }
 	    },
 	    validateChoice: function(value){
 	        "use strict";
@@ -2816,7 +2952,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            "use strict";
 	        return value;
 	    },
-	    validate: function (value) {
+	    validate: function (value, data) {
 	            "use strict";
 	        var validators = this.validators || [], i;
 	        if(this.isEmpty(value)){
@@ -2827,13 +2963,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }else{
 	            if(this.choices){
 	                if(utils.isArray(value)){
-	                    this.validateMultipleChoice(value);
+	                    this.validateMultipleChoice(value, data);
 	                }else{
-	                    this.validateChoice(value);
+	                    this.validateChoice(value, data);
 	                }
 	            }
 	            for(i=0; i<validators.length; i++){
-	                validators[i](value);
+	                validators[i](value, data);
 	            }
 	        }
 	    },
@@ -2843,6 +2979,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	            return this.label;
 	        }
 	        return this.name.charAt(0).toUpperCase() + this.name.substr(1);
+	    },
+	    getWidget: function () {
+	        "use strict";
+	        return "";
+	    },
+	    getLayout: function () {
+	        "use strict";
+	        return "";
 	    }
 	});
 
@@ -2858,6 +3002,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    clean: function (value) {
 	            "use strict";
 	        return parseInt(value);
+	    },
+	    getWidget: function () {
+	        "use strict";
+	        return this.choices ? "select" : "number-input";
 	    }
 	});
 
@@ -2865,20 +3013,46 @@ return /******/ (function(modules) { // webpackBootstrap
 	    clean: function (value) {
 	        "use strict";
 	        return !!value;
+	    },
+	    getWidget: function () {
+	        "use strict";
+	        return this.choices ? "select-radio" : "checkbox";
 	    }
 	});
+
 
 	define("float", {
 	    clean: function (value) {
 	            "use strict";
 	        return parseFloat(value);
+	    },
+	    getWidget: function () {
+	        "use strict";
+	        return this.choices ? "select" : "number-input";
 	    }
 	});
+
 
 	define("string", {
 	    clean: function (value) {
 	            "use strict";
 	        return value;
+	    },
+	    getWidget: function () {
+	        "use strict";
+	        return this.choices ? "select" : "text-input";
+	    }
+	});
+
+
+	define("text", {
+	    clean: function (value) {
+	        "use strict";
+	        return value;
+	    },
+	    getWidget: function () {
+	        "use strict";
+	        return "text-area";
 	    }
 	});
 
@@ -2887,6 +3061,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    clean: function () {
 	            "use strict";
 	        return
+	    },
+	    getWidget: function () {
+	        "use strict";
+	        return "date-input";
 	    }
 	});
 
@@ -2894,6 +3072,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	define("datetime", {
 	    clean: function () {
 	        "use strict";
+	    },
+	    getWidget: function () {
+	        "use strict";
+	        return "datetime-input";
 	    }
 	});
 
@@ -2908,11 +3090,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = {
 	    define: define,
-	    Field: Field,
-	    mapWidget: function (widget, field) {
-	        "use strict";
-	        fieldWidgetMapping[field] = widget;
-	    }
+	    Field: Field
 	};
 
 /***/ }

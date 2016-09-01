@@ -18,7 +18,6 @@ function Field(options){
         throw new Error("Unknown field type: "+ options.type);
     }
     delete options.type;
-    options.widget = options.widget || fieldWidgetMapping[typeName] || "text-input";
     return new type(options);
 }
 
@@ -34,15 +33,44 @@ Field.collect = function (source) {
     return result;
 }
 
+Field.mapWidget = function mapFieldToWidget(fieldType, callback) {
+        "use strict";
+    fieldWidgetMapping[fieldType] = callback;
+}
+
 var Type = utils.extend.call(Field, {
     constructor: function Type(options) {
             "use strict";
         if(this.super.constructor !== Type){
             this.super.constructor.call(this, arguments);
         }
-        this.widget = "text-input";
-        this.layout = "vertical";
-        utils.assign(this, options);
+        utils.assign(this, {
+            required: true,
+        }, options);
+
+        var type = this.type;
+
+        this.layout = this.layout || this.getLayout() || "vertical";
+
+        if(!this.widget){
+            var mapping = fieldWidgetMapping[type] || this.getWidget() || fieldWidgetMapping['*'];
+            this.widget = typeof mapping === 'function' ? mapping(this) : String(mapping);
+        }
+
+        if(utils.isString(this.widget)){
+            this.widget = {type: this.widget};
+        }
+
+        var choices = this.choices;
+        if(utils.isPlainObject(choices)){
+            var result = [];
+            for(var key in choices){
+                if(choices.hasOwnProperty(key)){
+                    result.push({value: this.toJS(key), label: choices[key]});
+                }
+            }
+            this.choices = result;
+        }
     },
     validateChoice: function(value){
         "use strict";
@@ -75,7 +103,7 @@ var Type = utils.extend.call(Field, {
             "use strict";
         return value;
     },
-    validate: function (value) {
+    validate: function (value, data) {
             "use strict";
         var validators = this.validators || [], i;
         if(this.isEmpty(value)){
@@ -86,13 +114,13 @@ var Type = utils.extend.call(Field, {
         }else{
             if(this.choices){
                 if(utils.isArray(value)){
-                    this.validateMultipleChoice(value);
+                    this.validateMultipleChoice(value, data);
                 }else{
-                    this.validateChoice(value);
+                    this.validateChoice(value, data);
                 }
             }
             for(i=0; i<validators.length; i++){
-                validators[i](value);
+                validators[i](value, data);
             }
         }
     },
@@ -102,6 +130,14 @@ var Type = utils.extend.call(Field, {
             return this.label;
         }
         return this.name.charAt(0).toUpperCase() + this.name.substr(1);
+    },
+    getWidget: function () {
+        "use strict";
+        return "";
+    },
+    getLayout: function () {
+        "use strict";
+        return "";
     }
 });
 
@@ -117,6 +153,10 @@ define("integer", {
     clean: function (value) {
             "use strict";
         return parseInt(value);
+    },
+    getWidget: function () {
+        "use strict";
+        return this.choices ? "select" : "number-input";
     }
 });
 
@@ -124,20 +164,46 @@ define("boolean", {
     clean: function (value) {
         "use strict";
         return !!value;
+    },
+    getWidget: function () {
+        "use strict";
+        return this.choices ? "select-radio" : "checkbox";
     }
 });
+
 
 define("float", {
     clean: function (value) {
             "use strict";
         return parseFloat(value);
+    },
+    getWidget: function () {
+        "use strict";
+        return this.choices ? "select" : "number-input";
     }
 });
+
 
 define("string", {
     clean: function (value) {
             "use strict";
         return value;
+    },
+    getWidget: function () {
+        "use strict";
+        return this.choices ? "select" : "text-input";
+    }
+});
+
+
+define("text", {
+    clean: function (value) {
+        "use strict";
+        return value;
+    },
+    getWidget: function () {
+        "use strict";
+        return "text-area";
     }
 });
 
@@ -146,6 +212,10 @@ define("date", {
     clean: function () {
             "use strict";
         return
+    },
+    getWidget: function () {
+        "use strict";
+        return "date-input";
     }
 });
 
@@ -153,6 +223,10 @@ define("date", {
 define("datetime", {
     clean: function () {
         "use strict";
+    },
+    getWidget: function () {
+        "use strict";
+        return "datetime-input";
     }
 });
 
@@ -167,9 +241,5 @@ define("list", {
 
 module.exports = {
     define: define,
-    Field: Field,
-    mapWidget: function (widget, field) {
-        "use strict";
-        fieldWidgetMapping[field] = widget;
-    }
+    Field: Field
 };

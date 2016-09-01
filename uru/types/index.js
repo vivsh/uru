@@ -12,5 +12,7 @@ module.exports = {
     widget: widgets.widget,
     Widget: widgets.Widget,
     layout: layouts.layout,
+    clearLayouts: layouts.clear,
+    clearWidgets: widgets.clear,
     ValidationError: errors.ValidationError
 };

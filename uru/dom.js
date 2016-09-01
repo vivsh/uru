@@ -193,9 +193,9 @@ function collectValues(el, collector){
         tag = item.tagName;
         if(tag === "INPUT" || tag === 'SELECT' || tag === 'TEXTAREA'){
             collector(item, getValue(item));
-            continue;
+        }else {
+            stack.push.apply(stack, item.childNodes);
         }
-        stack.push.apply(stack, el.childNodes);
     }
 }
 
@@ -216,6 +216,29 @@ function populateValues(el, provider){
         }
         stack.push.apply(stack, el.childNodes);
     }
+    return result;
+}
+
+function getFormData(el) {
+    "use strict";
+    var result = {};
+    function callback(elem, value) {
+        var name = elem.name, temp;
+        if(name in result){
+            temp = result[name];
+            if(!utils.isArray(temp)){
+                result[name] = [temp];
+            }
+            if(value) {
+                result[name].push(value);
+            }
+        }else{
+            if(value){
+                result[name] = value;
+            }
+        }
+    }
+    collectValues(el, callback);
     return result;
 }
 
@@ -310,6 +333,7 @@ module.exports = {
     setValue: setValue,
     closest: closestNode,
     collectValues: collectValues,
-    populateValues: populateValues
+    populateValues: populateValues,
+    getFormData: getFormData
 };
 

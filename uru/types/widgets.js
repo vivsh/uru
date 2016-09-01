@@ -25,12 +25,12 @@ var Widget = utils.extend.call(Object, {
 });
 
 var Input = Widget.extend({
-    render: function (ctx) {
+    render: function (attrs) {
         "use strict";
         var type = this.type.substr(0, this.type.length-6);
-        var attrs = utils.assign({
+        attrs = utils.assign({
             type: type,
-        }, ctx);
+        }, attrs);
         return u("-input", attrs);
     }
 })
@@ -46,7 +46,11 @@ function widget(name, definition){
             base = Widget;
         }
         var class_ = typeof definition === 'function' ? definition : base.extend(definition);
-        class_.prototype.type = name;
+        Object.defineProperty(class_.prototype, 'type', {
+            value: name,
+            configurable: false,
+            enumerable: false
+        })
         widgetRegistry[name] = class_;
         return class_;
     }else{
@@ -56,7 +60,7 @@ function widget(name, definition){
 
 (function () {
     "use strict";
-    var commonWidgets = ['checkbox', 'radio', 'select', 'text', 'date', 'time', 'datetime', 'number', 'email', 'tel', 'password'],
+    var commonWidgets = ['hidden', 'radio', 'text', 'date', 'time', 'datetime', 'number', 'email', 'tel', 'password'],
         name;
     for(var i=0; i<commonWidgets.length; i++){
         name = commonWidgets[i];
@@ -67,9 +71,39 @@ function widget(name, definition){
            return u("-textarea", attrs);
        }
     });
+
+    widget("checkbox-input", {
+        render: function (attrs) {
+            attrs.type = "checkbox";
+            attrs.checked = !!attrs.value;
+            attrs.value = "true";
+            return u("-input", attrs);
+        }
+    });
+
+    widget("select", {
+        render: function (attrs) {
+            var choices = attrs.choices;
+            delete attrs.choices;
+            return u("-select",
+                choices.map(function (item) {
+                    return u("option", {value: item.value}, item.label);
+                })
+            );
+        }
+    });
+
 }());
+
+
+function clearWidgets() {
+    "use strict";
+    widgetRegistry = {};
+}
+
 
 module.exports = {
     widget: widget,
-    Widget: Widget
+    Widget: Widget,
+    clear: clearWidgets
 };

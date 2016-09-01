@@ -3,7 +3,9 @@ var utils = require("../utils"),
     widgets = require("./widgets"),
     layouts = require("./layouts"),
     errors = require("./errors"),
-    types = require("./types");
+    types = require("./types"),
+    dom = require("../dom"),
+    nodes = require("../nodes");
 
 
 var BoundField = utils.extend.call(Object, {
@@ -16,12 +18,9 @@ var BoundField = utils.extend.call(Object, {
         this.id = "id_" + this.name;
         this.label = field.getLabel();
         var widget = field.widget;
-        if(utils.isString(widget)){
-            widget = {type: widget};
-        }
         var widgetFactory = widgets.widget(widget.type);
         this.widget = new widgetFactory(widget);
-        this.layout = layouts.layout(field.layout) || layouts.layout("default");
+        this.layout = layouts.layout(field.layout) || layouts.layout("*");
     },
     props:{
         silent: {
@@ -55,7 +54,7 @@ var BoundField = utils.extend.call(Object, {
     },
     isEmpty: function () {
         "use strict";
-        return !(this.name in this.form.cleanedData);
+        return this.value == null;//jshint ignore:line
     },
     clean: function (value) {
         "use strict";
@@ -67,10 +66,10 @@ var BoundField = utils.extend.call(Object, {
         }
         return value;
     },
-    validate: function (value) {
+    validate: function (value, data) {
         "use strict";
         var field = this.field;
-        field.validate(value);
+        field.validate(value, data);
     },
     isValid: function () {
         "use strict";
@@ -83,15 +82,17 @@ var BoundField = utils.extend.call(Object, {
     render: function () {
         "use strict";
         var value = this.value;
+        var widget = this.widget;
         var attrs = this.buildAttrs(utils.assign({
-            name: this.name,
             id: this.id,
+            name: this.name,
+            value: value,
         }, this.widget.attrs));
-        // if(!this.isEmpty()){
-        //     attrs.value = value;
-        // }
-        var widget = this.widget.render(attrs);
+        if(this.field.choices){
+            attrs.choices = this.field.choices;
+        }
         var info = {
+            attrs: attrs,
             widget: widget,
             errors: this.errors,
             value: value,
@@ -118,7 +119,7 @@ var Form = utils.extend.call(Object, {
     constructor:function Form(options) {
         "use strict";
         this._errors = new errors.ErrorDict();
-        this.cleanedData = {};
+        this._cleanedData = {};
         this.changedData = {$count: 0};
         this.fieldSilence = {};
         this.silent = true;
@@ -133,6 +134,16 @@ var Form = utils.extend.call(Object, {
         this.setData(options.data);
     },
     props: {
+        cleanedData: {
+            get: function () {
+                "use strict";
+                if(this._dirty){
+                    this.runClean();
+                }
+                return this._cleanedData;
+            },
+            enumerable: false
+        },
         errors: {
             get: function () {
                 "use strict";
@@ -189,6 +200,36 @@ var Form = utils.extend.call(Object, {
             }
         }
     },
+    valuesSubmitted: function (el) {
+        "use strict";
+        var data = dom.getFormData(el), key;
+        this.setData(data);
+        this._dirty = true;
+        this.silent = false;
+        this.getFields().forEach(function (field) {
+            field.silent = false;
+        })
+        this.runClean(true);
+        var isValid = this.isValid();
+        if(!isValid){
+            nodes.redraw();
+        }
+        return isValid;
+    },
+    valuesChanged: function (el) {
+        "use strict";
+        var data = dom.getFormData(el), key;
+        this.setData(data);
+        this.silent = false;
+        for(key in this.changedData){
+            if(this.changedData.hasOwnProperty(key) && key.charAt(0) !== '$') {
+                this[key].silent = false;
+            }
+        }
+        if(this.hasChanged()){
+            nodes.redraw();
+        }
+    },
     getFields: function () {
         "use strict";
         var fields = this.constructor.fields, field, result = [];
@@ -216,7 +257,7 @@ var Form = utils.extend.call(Object, {
             field = fields[i];
             value = field.widget.read(field.name, data);
             initial = field.widget.read(field.name, previous);
-            if(!utils.isEqual(initial, value)){
+            if(!utils.isEqual(initial, value)){//jshint ignore: line
                 changes[field.name] = initial;
                 this._errors.clear(field.name);
                 changeCount++;
@@ -240,11 +281,11 @@ var Form = utils.extend.call(Object, {
         "use strict";
         return message;
     },
-    runClean: function () {
+    runClean: function (force) {
         "use strict";
         var errors = this._errors, self = this;
         errors.capture(function () {
-            self.cleanedData = self.clean();
+            self._cleanedData = self.clean(force);
         }, this);
         this._dirty = false;
     },
@@ -252,18 +293,19 @@ var Form = utils.extend.call(Object, {
         "use strict";
         return this.errors.length === 0;
     },
-    clean: function () {
+    clean: function (force) {
         "use strict";
-        var pastData = this.cleanedData || {};
-        var fields = this.getFields(), data = this.data, field, value, cleanedData = {}, key, methodName,
+        var pastData = this._cleanedData || {};
+        var fields = this.getFields(), data = this.data, field, value, cleanedData = {}, key, methodName, pastValue,
             fieldNames = {};
         var errors = this._errors, self = this;
         errors.clear('__all__');
-        this.cleanedData = cleanedData;
+        this._cleanedData = cleanedData;
         for(var i=0; i<fields.length; i++){
             field = fields[i];
-            if(!this.hasChanged(field.name)){
-                cleanedData[field.name] = pastData[field.name];
+            pastValue = pastData[field.name];
+            if(!this.hasChanged(field.name) && !force){
+                cleanedData[field.name] = pastValue;
                 continue;
             }
             errors.clear(field.name);

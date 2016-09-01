@@ -89,7 +89,7 @@ var ErrorDict = utils.extend.call(Object, {
 function ValidationError(message, code, name){
     "use strict";
     var data = message, key, value, list = [];
-    if(arguments.length === 1){
+    if(arguments.length === 1 && !utils.isString(message)){
         for(key in data){
             if(data.hasOwnProperty(key)){
                 value = data[key];

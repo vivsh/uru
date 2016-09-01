@@ -13,6 +13,12 @@ function layout(name, callback) {
     }
 }
 
-module.exports = {
-    layout: layout
+function clearLayouts() {
+    "use strict";
+    layoutRegistry = {};
 }
+
+module.exports = {
+    clear: clearLayouts,
+    layout: layout
+};
