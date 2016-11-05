@@ -13,12 +13,17 @@ var utils = require("./utils"),
 function mount(node, element, before){
     "use strict";
     var frag = nodes.patch(node, null, element, before);
+    element.uruNode = node;
     return node;
 }
 
 
 function unmount(node){
     "use strict";
+    var el = node.el;
+    if(el){
+        delete el.parentNode.uruNode;
+    }
     nodes.patch(null, node);
 }
 
@@ -49,7 +54,7 @@ function runUru(scope){
                }
                options = dom.data(el, "uru-context") || {};
                name = el.getAttribute("data-uru-component");
-               el.uruNode = mount(uru(name, options), el);
+               mount(uru(name, options), el);
            }
         });
     });
