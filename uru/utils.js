@@ -47,7 +47,7 @@ var extend = function ClassFactory(options, staticOptions) {
     var statics = take(options, "statics");
     var props = take(options, "props");
     subclass.prototype = create(owner.prototype, options, {constructor: subclass});
-    assign(subclass, {extend: extend}, owner, staticOptions);
+    assign(subclass, {extend: extend}, owner, statics, staticOptions);
     if(props){
         Object.defineProperties(subclass.prototype, props);
     }
