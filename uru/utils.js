@@ -44,7 +44,6 @@ var extend = function ClassFactory(options, staticOptions) {
     var subclass = options.hasOwnProperty('constructor') ? options.constructor : (function subclass() {
         owner.apply(this, arguments);
     });
-    subclass.super = owner;
     var statics = take(options, "statics");
     var props = take(options, "properties");
     subclass.prototype = create(owner.prototype, options, {constructor: subclass});
@@ -52,6 +51,7 @@ var extend = function ClassFactory(options, staticOptions) {
     if(props){
         Object.defineProperties(subclass.prototype, props);
     }
+    subclass.super = prototype;
     return subclass;
 };
 
