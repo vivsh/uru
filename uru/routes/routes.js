@@ -312,3 +312,4 @@ module.exports = {
     isRouted: isRouted,
     currentPath: currentPath
 };
+

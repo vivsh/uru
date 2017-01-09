@@ -2253,7 +2253,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.widget = new widgetFactory(widget);
 	        this.layout = layouts.layout(field.layout) || layouts.layout("*");
 	    },
-	    props:{
+	    properties:{
 	        silent: {
 	            get: function () {
 	                "use strict";
@@ -2364,7 +2364,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this._dirty = true;
 	        this.setData(options.data);
 	    },
-	    props: {
+	    properties: {
 	        cleanedData: {
 	            get: function () {
 	                "use strict";
