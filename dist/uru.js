@@ -2646,12 +2646,22 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	(function () {
 	    "use strict";
-	    var commonWidgets = ['hidden', 'radio', 'text', 'date', 'time', 'datetime', 'number', 'email', 'tel', 'password'],
+	    var commonWidgets = ['hidden', 'radio', 'text', 'date', 'time', 'number', 'email', 'tel', 'password'],
 	        name;
 	    for(var i=0; i<commonWidgets.length; i++){
 	        name = commonWidgets[i];
 	        widget(name+"-input", Input.extend({}));
 	    }
+
+	    widget("datetime-input", {
+	        render: function (attrs) {
+	            attrs = utils.assign({
+	                type: "datetime-local",
+	            }, attrs);
+	            return u("-input", attrs);
+	        }
+	    });
+
 	    widget("text-area", {
 	       render: function (attrs) {
 	           return u("-textarea", attrs);
