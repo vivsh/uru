@@ -246,7 +246,7 @@ var Form = utils.extend.call(Object, {
     },
     nonFieldErrors: function () {
         "use strict";
-        return this.errors.get('__all__');
+        return this.errors.get('__all__').concat(this.errors.get('non_field_errors'));
     },
     setData: function (data) {
         "use strict";
