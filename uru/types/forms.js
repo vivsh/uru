@@ -239,10 +239,10 @@ var Form = utils.extend.call(Object, {
         }
         return result;
     },
-    setErrors: function (errors) {
+    setErrors: function (errs) {
         "use strict";
         var key, value;
-        this._errors.add(new errors.ValidationError(errors), this);
+        this._errors.add(new errors.ValidationError(errs), this);
     },
     nonFieldErrors: function () {
         "use strict";
