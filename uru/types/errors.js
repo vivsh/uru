@@ -75,7 +75,7 @@ var ErrorDict = utils.extend.call(Object, {
             }
         }
     },
-    props:{
+    properties:{
         length:{
             get: function () {
                 "use strict";

@@ -2814,7 +2814,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	        }
 	    },
-	    props:{
+	    properties:{
 	        length:{
 	            get: function () {
 	                "use strict";
