@@ -521,6 +521,9 @@ ComponentNode.prototype = {
                 if (component.$lastUpdate !== drawId && component.hasChanged && component.hasChanged()) {
                     tree = component.$tree;
                     content = component.$tag.render();
+                    if(content === tree){
+                        continue;
+                    }
                     if(0 && tree && !tree.el){
                         patch(content, null, tree.errorRoot);
                     }else{

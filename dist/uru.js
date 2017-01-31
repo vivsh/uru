@@ -1197,6 +1197,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	                if (component.$lastUpdate !== drawId && component.hasChanged && component.hasChanged()) {
 	                    tree = component.$tree;
 	                    content = component.$tag.render();
+	                    if(content === tree){
+	                        continue;
+	                    }
 	                    if(false){
 	                        patch(content, null, tree.errorRoot);
 	                    }else{
