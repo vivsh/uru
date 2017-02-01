@@ -208,7 +208,9 @@ var Form = utils.extend.call(Object, {
         this.silent = false;
         this.getFields().forEach(function (field) {
             field.silent = false;
-        })
+        });
+        this._errors.clear('__all__');
+        this._errors.clear('non_field_errors');
         this.runClean(true);
         var isValid = this.isValid();
         if(!isValid){

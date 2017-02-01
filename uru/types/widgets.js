@@ -9,6 +9,8 @@ var Widget = utils.extend.call(Object, {
     options: {
 
     },
+    hidden: false,
+    multipart: false,
     constructor: function Widget(options) {
         "use strict";
         this.options = utils.assign({}, this.constructor.prototype.options, options);
@@ -64,7 +66,11 @@ function widget(name, definition){
         name;
     for(var i=0; i<commonWidgets.length; i++){
         name = commonWidgets[i];
-        widget(name+"-input", Input.extend({}));
+        var kwargs = {};
+        if(name==='hidden'){
+            kwargs['hidden'] = true;
+        }
+        widget(name+"-input", Input.extend(kwargs));
     }
 
     widget("datetime-input", {

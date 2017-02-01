@@ -2442,7 +2442,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.silent = false;
 	        this.getFields().forEach(function (field) {
 	            field.silent = false;
-	        })
+	        });
+	        this._errors.clear('__all__');
+	        this._errors.clear('non_field_errors');
 	        this.runClean(true);
 	        var isValid = this.isValid();
 	        if(!isValid){
@@ -2598,6 +2600,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    options: {
 
 	    },
+	    hidden: false,
+	    multipart: false,
 	    constructor: function Widget(options) {
 	        "use strict";
 	        this.options = utils.assign({}, this.constructor.prototype.options, options);
@@ -2653,7 +2657,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	        name;
 	    for(var i=0; i<commonWidgets.length; i++){
 	        name = commonWidgets[i];
-	        widget(name+"-input", Input.extend({}));
+	        var kwargs = {};
+	        if(name==='hidden'){
+	            kwargs['hidden'] = true;
+	        }
+	        widget(name+"-input", Input.extend(kwargs));
 	    }
 
 	    widget("datetime-input", {
