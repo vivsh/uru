@@ -2690,11 +2690,11 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    widget("select", {
 	        render: function (attrs) {
-	            var choices = attrs.choices;
-	            delete attrs.choices;
+	            var choices = attrs.choices, value = attrs.value;
 	            return u("-select",
 	                choices.map(function (item) {
-	                    return u("option", {value: item.value}, item.label);
+	                    var selected = value != null ? String(value) === String(item.value) : false; // jshint: ignore line
+	                    return u("option", {value: item.value, selected: selected}, item.label);
 	                })
 	            );
 	        }
