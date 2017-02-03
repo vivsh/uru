@@ -118,6 +118,7 @@ function createProperty(form, field){
 var Form = utils.extend.call(Object, {
     constructor:function Form(options) {
         "use strict";
+        options = options || {};
         this._errors = new errors.ErrorDict();
         this._cleanedData = {};
         this.changedData = {$count: 0};
