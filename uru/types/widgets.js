@@ -100,7 +100,7 @@ function widget(name, definition){
     widget("select", {
         render: function (attrs) {
             var choices = attrs.choices, value = attrs.value;
-            return u("-select",
+            return u("-select", attrs,
                 choices.map(function (item) {
                     var selected = value != null ? String(value) === String(item.value) : false; // jshint: ignore line
                     return u("option", {value: item.value, selected: selected}, item.label);
