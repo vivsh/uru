@@ -211,7 +211,7 @@ define("text", {
 define("date", {
     clean: function () {
             "use strict";
-        return
+        return;
     },
     getWidget: function () {
         "use strict";

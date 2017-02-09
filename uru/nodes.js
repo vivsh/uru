@@ -28,7 +28,7 @@ var domHooks = {};
 var pluginRegistry = [];
 
 var DOM_PROPERTIES = ['innerText', 'innerHTML', 'value', 'checked', 'selected', 'selectedIndex',
-        'disabled', 'readonly', 'className', 'style'];
+        'disabled', 'readonly', 'className', 'style', 'valueAsDate', 'valueAsNumber'];
 var DOM_PROPERTY_SET = {};
 
 

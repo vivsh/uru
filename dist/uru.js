@@ -704,7 +704,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var pluginRegistry = [];
 
 	var DOM_PROPERTIES = ['innerText', 'innerHTML', 'value', 'checked', 'selected', 'selectedIndex',
-	        'disabled', 'readonly', 'className', 'style'];
+	        'disabled', 'readonly', 'className', 'style', 'valueAsDate', 'valueAsNumber'];
 	var DOM_PROPERTY_SET = {};
 
 
@@ -3088,7 +3088,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	define("date", {
 	    clean: function () {
 	            "use strict";
-	        return
+	        return;
 	    },
 	    getWidget: function () {
 	        "use strict";
