@@ -240,7 +240,7 @@ define("date", {
         if(!value){
             return value;
         }
-        return "" + value.getFullYear() + "-" + value.getMonth() + "-" + value.getDate();
+        return "" + value.getFullYear() + "-" + (value.getMonth()+1) + "-" + value.getDate();
     },
     getWidget: function () {
         "use strict";

@@ -175,7 +175,7 @@ function domAttributes(node, values) {
     var hasType = false;
     if(el.tagName === 'INPUT' && 'type' in values){
         el.type = values.type;
-        delete values.value;
+        delete values.type;
     }
     for (key in values) {
         if (values.hasOwnProperty(key)) {

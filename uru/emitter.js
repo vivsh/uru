@@ -58,18 +58,21 @@ var Emitter = {
         }
         return this;
     },
-    trigger: function(name, data, defaultHandler, context){
+    trigger: function(name, data, options){
         "use strict";
-        var event = new EmitterEvent(this, name, data), component = this;
+        options = options || {bubble: false};
+        var event = new EmitterEvent(this, name, data),
+            component = this,
+            defaultHandler = options.defaultHandler;
         while(component && component.$callHandlers){
             component.$callHandlers(event);
-            if(event.isPropagationStopped()){
+            if(!options.bubble || event.isPropagationStopped()){
                 break;
             }
             component = component.getParent ? component.getParent() : null;
         }
         if(defaultHandler && !event.isDefaultPrevented()){
-            defaultHandler.call(context, event);
+            defaultHandler.call(options.context, event);
         }
         return event;
     },
