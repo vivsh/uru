@@ -328,4 +328,3 @@ module.exports = {
     bind: bind,
     bindAll: bindAll
 };
-

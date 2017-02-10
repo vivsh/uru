@@ -262,7 +262,11 @@ function getValue(el){
         }
     }
     if(tag === 'INPUT'){
-        if(el.type === 'radio' || el.type === 'checkbox'){
+        if(el.type in {'date': 1, 'datetime': 1, 'datetime-local':1}) {
+            return el.valueAsDate;
+        }else if(el.type === 'number'){
+            return el.valueAsNumber;
+        }else if(el.type === 'radio' || el.type === 'checkbox'){
             return el.checked ? el.value : null;
         }else{
             return el.value;
@@ -292,7 +296,15 @@ function setValue(el, value){
             el.value = value;
         }
     }else if(tag === 'INPUT'){
-        if(el.type === 'radio' || el.type === 'checkbox'){
+        if(el.type in {'date': 1, 'datetime': 1, 'datetime-local':1}) {
+            if(value instanceof Date){
+                el.valueAsDate = value;
+            }else{
+                el.value = value;
+            }
+        }else if(el.type === 'number'){
+            el.value = value;
+        }else if(el.type === 'radio' || el.type === 'checkbox'){
             el.checked = el.value == value || el.value in valueMap;
         }else{
             el.value = value;

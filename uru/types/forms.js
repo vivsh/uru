@@ -56,20 +56,27 @@ var BoundField = utils.extend.call(Object, {
         "use strict";
         return this.value == null;//jshint ignore:line
     },
-    clean: function (value) {
+    read: function (data) {
         "use strict";
-        var field = this.field;
-        if(field.isEmpty(value)){
-            return null;
-        }else{
-            value = field.toJS(value);
-        }
-        return value;
+        var value = this.widget.read(this.name, data);
+        return this.field.coerce(value);
+    },
+    toJS: function (value) {
+        "use strict";
+        return this.field.coerce(value);
+    },
+    toJSON: function () {
+        "use strict";
+        return this.field.toJSON(this.value);
     },
     validate: function (value, data) {
         "use strict";
         var field = this.field;
         field.validate(value, data);
+    },
+    transform: function (value) {
+        "use strict";
+        return this.field.transform(value);
     },
     isValid: function () {
         "use strict";
@@ -81,7 +88,7 @@ var BoundField = utils.extend.call(Object, {
     },
     render: function () {
         "use strict";
-        var value = this.value;
+        var value = this.data;
         var widget = this.widget;
         var attrs = this.buildAttrs(utils.assign({
             id: this.id,
@@ -204,7 +211,7 @@ var Form = utils.extend.call(Object, {
     valuesSubmitted: function (el) {
         "use strict";
         var data = dom.getFormData(el), key;
-        this.setData(data);
+        this.setData(data, true);
         this._dirty = true;
         this.silent = false;
         this.getFields().forEach(function (field) {
@@ -222,7 +229,7 @@ var Form = utils.extend.call(Object, {
     valuesChanged: function (el) {
         "use strict";
         var data = dom.getFormData(el), key;
-        this.setData(data);
+        this.setData(data, true);
         this.silent = false;
         for(key in this.changedData){
             if(this.changedData.hasOwnProperty(key) && key.charAt(0) !== '$') {
@@ -251,18 +258,21 @@ var Form = utils.extend.call(Object, {
         "use strict";
         return this.errors.get('__all__').concat(this.errors.get('non_field_errors'));
     },
-    setData: function (data) {
+    setData: function (data, isHtml) {
         "use strict";
         data = data || {};
-        var previous = utils.assign({}, this.data), key, value, initial, field;
+        var previous = utils.assign({}, this.data), key, value, initial, field, fieldName, temp;
+        var newData = {};
         var changes = {}, fields = this.getFields(), changeCount = 0;
         for(var i=0; i<fields.length; i++){
             field = fields[i];
-            value = field.widget.read(field.name, data);
-            initial = field.widget.read(field.name, previous);
+            fieldName = field.name;
+            value = isHtml ? field.read(data) : field.toJS(data[fieldName]);
+            newData[fieldName] = value;
+            initial = previous[fieldName];
             if(!utils.isEqual(initial, value)){//jshint ignore: line
-                changes[field.name] = initial;
-                this._errors.clear(field.name);
+                changes[fieldName] = initial;
+                this._errors.clear(fieldName);
                 changeCount++;
             }
         }
@@ -271,7 +281,7 @@ var Form = utils.extend.call(Object, {
         if(changeCount){
             this._dirty = true;
         }
-        this.data = data;
+        this.data = newData;
     },
     hasChanged: function (name) {
         "use strict";
@@ -296,6 +306,17 @@ var Form = utils.extend.call(Object, {
         "use strict";
         return this.errors.length === 0;
     },
+    toJSON: function () {
+        "use strict";
+        var result = {}, data = this.cleanedData, i, fields = this.getFields(), field;
+        for(i=0; i< fields.length; i++){
+            field = fields[i];
+            if(!field.isEmpty()) {
+                result[field.name] = field.toJSON();
+            }
+        }
+        return result;
+    },
     clean: function (force) {
         "use strict";
         var pastData = this._cleanedData || {};
@@ -303,7 +324,9 @@ var Form = utils.extend.call(Object, {
             fieldNames = {};
         var errors = this._errors, self = this;
         errors.clear('__all__');
+        errors.clear('non_field_errors');
         this._cleanedData = cleanedData;
+
         for(var i=0; i<fields.length; i++){
             field = fields[i];
             pastValue = pastData[field.name];
@@ -313,23 +336,35 @@ var Form = utils.extend.call(Object, {
             }
             errors.clear(field.name);
             fieldNames[field.name] = field;
-            errors.capture(function () {
-                cleanedData[field.name] = field.clean(field.data);
-            }, this, field.name);//jshint ignore: line
+            cleanedData[field.name] = data[field.name];
         }
+
         for(key in cleanedData){
             if(cleanedData.hasOwnProperty(key) && key in fieldNames){
                 field = fieldNames[key];
                 value = cleanedData[key];
                 errors.capture(function () {
                     field.validate(value, cleanedData);
+                }, this, key)//jshint ignore: line
+            }
+        }
+
+        var finalData = utils.assign({}, cleanedData);
+        for(key in finalData){
+            if(cleanedData.hasOwnProperty(key) && key in fieldNames){
+                field = fieldNames[key];
+                value = cleanedData[key];
+                errors.capture(function () {
                     methodName = "clean" + key.charAt(0).toUpperCase() + key.substr(1);
                     if(typeof self[methodName] === 'function'){
-                        cleanedData[key] = self[methodName](value, cleanedData);
+                        cleanedData[key] = self[methodName](value);
+                    }else{
+                        cleanedData[key] = field.transform(value);
                     }
                 }, this, key)//jshint ignore: line
             }
         }
+
         return cleanedData;
     }
 });

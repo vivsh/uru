@@ -46,6 +46,7 @@ var Type = utils.extend.call(Field, {
         }
         utils.assign(this, {
             required: true,
+            default: null
         }, options);
 
         var type = this.type;
@@ -99,8 +100,30 @@ var Type = utils.extend.call(Field, {
             "use strict";
         return a === b;
     },
-    toJS: function (value, options) {
+    toJSON: function (value) {
+        "use strict";
+        return value;
+    },
+    toJS: function (value) {
             "use strict";
+        return value;
+    },
+    /**
+     * After coerce, no transformation of data is done.
+     * This is to make sure that values don't change during validation
+     * @param value
+     * @return {*}
+     */
+    coerce: function (value) {
+        "use strict";
+        var result = this.default;
+        if(!this.isEmpty(value)){
+            result = this.toJS(value);
+        }
+        return result;
+    },
+    transform: function (value) {
+        "use strict";
         return value;
     },
     validate: function (value, data) {
@@ -110,7 +133,6 @@ var Type = utils.extend.call(Field, {
             if(this.required){
                 throw new errors.ValidationError("This field is required", "required");
             }
-            return null;
         }else{
             if(this.choices){
                 if(utils.isArray(value)){
@@ -150,7 +172,7 @@ function define(name, defn){
 }
 
 define("integer", {
-    clean: function (value) {
+    toJS: function (value) {
             "use strict";
         return parseInt(value);
     },
@@ -161,7 +183,7 @@ define("integer", {
 });
 
 define("boolean", {
-    clean: function (value) {
+    toJS: function (value) {
         "use strict";
         return !!value;
     },
@@ -173,7 +195,7 @@ define("boolean", {
 
 
 define("float", {
-    clean: function (value) {
+    toJS: function (value) {
             "use strict";
         return parseFloat(value);
     },
@@ -185,7 +207,7 @@ define("float", {
 
 
 define("string", {
-    clean: function (value) {
+    toJS: function (value) {
             "use strict";
         return value;
     },
@@ -197,7 +219,7 @@ define("string", {
 
 
 define("text", {
-    clean: function (value) {
+    toJS: function (value) {
         "use strict";
         return value;
     },
@@ -209,9 +231,16 @@ define("text", {
 
 
 define("date", {
-    clean: function () {
+    toJS: function (value) {
             "use strict";
-        return;
+        return value instanceof Date ? value : new Date(value);
+    },
+    toJSON: function (value) {
+        "use strict";
+        if(!value){
+            return value;
+        }
+        return "" + value.getFullYear() + "-" + value.getMonth() + "-" + value.getDate();
     },
     getWidget: function () {
         "use strict";
@@ -221,8 +250,16 @@ define("date", {
 
 
 define("datetime", {
-    clean: function () {
+    toJS: function (value) {
         "use strict";
+        return value instanceof Date ? value : new Date(value);
+    },
+    toJSON: function (value) {
+        "use strict";
+        if(!value){
+            return value;
+        }
+        return value.isISOString();
     },
     getWidget: function () {
         "use strict";
@@ -232,9 +269,9 @@ define("datetime", {
 
 
 define("list", {
-    clean: function (values) {
+    toJS: function (values) {
         "use strict";
-        return values.map(this.base.clean);
+        return utils.isArray(values) ? values: values.map(this.base.clean);
     }
 });
 

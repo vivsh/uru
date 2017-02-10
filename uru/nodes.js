@@ -172,6 +172,11 @@ function domAttributes(node, values) {
         value:1
     };
     var events = [];
+    var hasType = false;
+    if(el.tagName === 'INPUT' && 'type' in values){
+        el.type = values.type;
+        delete values.value;
+    }
     for (key in values) {
         if (values.hasOwnProperty(key)) {
             value = values[key];
@@ -179,7 +184,7 @@ function domAttributes(node, values) {
                 events.push([key.substr(2), value]);
             }else if(key === 'class'){
                 el.className = dom.classes(value);
-            }else if(key === 'value' && el.tagName === 'TEXTAREA'){
+            }else if(key === 'value' && el.tagName in {'TEXTAREA': 1}){
                 el.value = value || "";
             }else if(key === "show"){
                 domDisplay(el, value);

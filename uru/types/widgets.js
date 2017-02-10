@@ -62,7 +62,7 @@ function widget(name, definition){
 
 (function () {
     "use strict";
-    var commonWidgets = ['hidden', 'radio', 'text', 'date', 'time', 'number', 'email', 'tel', 'password'],
+    var commonWidgets = ['hidden', 'radio', 'text', 'number', 'email', 'tel', 'password'],
         name;
     for(var i=0; i<commonWidgets.length; i++){
         name = commonWidgets[i];
@@ -73,8 +73,41 @@ function widget(name, definition){
         widget(name+"-input", Input.extend(kwargs));
     }
 
+    widget("time-input", {
+        render: function (attrs) {
+            var value = attrs.value;
+            if(value instanceof Date){
+                attrs.valueAsDate = value;
+                delete attrs.value;
+            }
+            attrs = utils.assign({
+                type: "time",
+            }, attrs);
+            return u("-input", attrs);
+        }
+    });
+
+    widget("date-input", {
+        render: function (attrs) {
+            var value = attrs.value;
+            if(value instanceof Date){
+                attrs.valueAsDate = value;
+                delete attrs.value;
+            }
+            attrs = utils.assign({
+                type: "date",
+            }, attrs);
+            return u("-input", attrs);
+        }
+    });
+
     widget("datetime-input", {
         render: function (attrs) {
+            var value = attrs.value;
+            if(value instanceof Date){
+                attrs.valueAsDate = value;
+                delete attrs.value;
+            }
             attrs = utils.assign({
                 type: "datetime-local",
             }, attrs);
