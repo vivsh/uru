@@ -102,16 +102,30 @@ function widget(name, definition){
     });
 
     widget("datetime-input", {
+        read: function (name, data) {
+            var date = data[name+"_date"], time = data[name+"_time"];
+            if(!date || !time){
+                return '';
+            }
+            console.log(date, time);
+        },
         render: function (attrs) {
             var value = attrs.value;
+            var name = attrs.name;
             if(value instanceof Date){
                 attrs.valueAsDate = value;
+                value.setSeconds(0);
+                value.setMilliseconds(0);
                 delete attrs.value;
             }
             attrs = utils.assign({
                 type: "datetime-local",
+                style: {display: "inline", width: "auto"}
             }, attrs);
-            return u("-input", attrs);
+            return u("div", [
+                u("-input", utils.assign(attrs, {type:"date", name: name+"_date"})),
+                u("-input", utils.assign(attrs, {type:"time", step: 60, name: name+"_time"})),
+            ]);
         }
     });
 

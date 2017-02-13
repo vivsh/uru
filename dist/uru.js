@@ -715,6 +715,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	})();
 
 
+	function updateAttributes(node){
+	    "use strict";
+	    var el = node.el;
+	    var properties = ['value','checked', 'selected', 'selectedIndex', 'valueAsNumber', 'valueAsNumber'], i, key;
+	    if(el.tagName in {SELECT:1, INPUT:1, TEXTAREA: 1}){
+	        var attrs = node.attrs || {};
+	        for(i=0; i<properties.length; i++){
+	            key = properties[i];
+	            if(attrs.hasOwnProperty(key)) {
+	                attrs[key] = el[key];
+	            }
+	        }
+	        node.attrs = attrs;
+	    }
+	}
+
+
 	function domNamespace(tag, parent) {
 	    "use strict";
 	    if (tag === 'svg') {
@@ -798,6 +815,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if(callback){
 	        var func = function (event) {
 	            event = dom.normalizeEvent(event);
+	            updateAttributes(node);
 	            callback.call(node.owner, event);
 	            redraw();
 	        };
@@ -1363,7 +1381,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    l = dst.length;
 	    for(i=0; i<l; i++){
 	        dstChild = dst[i];
-	        if(false){//jshint ignore: line
+	        if(dstChild.key != null){//jshint ignore: line
 	            if(!childMap){
 	                childMap = getChildNodesMap(src);
 	            }
@@ -1754,7 +1772,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	    }
 	    if(tag === 'INPUT'){
-	        if(el.type in {'date': 1, 'datetime': 1, 'datetime-local':1}) {
+	        if(el.type in {'date': 1, 'datetime': 1, 'datetime-local':1, time:1}) {
 	            return el.valueAsDate;
 	        }else if(el.type === 'number'){
 	            return el.valueAsNumber;
@@ -2748,16 +2766,30 @@ return /******/ (function(modules) { // webpackBootstrap
 	    });
 
 	    widget("datetime-input", {
+	        read: function (name, data) {
+	            var date = data[name+"_date"], time = data[name+"_time"];
+	            if(!date || !time){
+	                return '';
+	            }
+	            console.log(date, time);
+	        },
 	        render: function (attrs) {
 	            var value = attrs.value;
+	            var name = attrs.name;
 	            if(value instanceof Date){
 	                attrs.valueAsDate = value;
+	                value.setSeconds(0);
+	                value.setMilliseconds(0);
 	                delete attrs.value;
 	            }
 	            attrs = utils.assign({
 	                type: "datetime-local",
+	                style: {display: "inline", width: "auto"}
 	            }, attrs);
-	            return u("-input", attrs);
+	            return u("div", [
+	                u("-input", utils.assign(attrs, {type:"date", name: name+"_date"})),
+	                u("-input", utils.assign(attrs, {type:"time", step: 60, name: name+"_time"})),
+	            ]);
 	        }
 	    });
 

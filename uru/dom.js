@@ -262,7 +262,7 @@ function getValue(el){
         }
     }
     if(tag === 'INPUT'){
-        if(el.type in {'date': 1, 'datetime': 1, 'datetime-local':1}) {
+        if(el.type in {'date': 1, 'datetime': 1, 'datetime-local':1, time:1}) {
             return el.valueAsDate;
         }else if(el.type === 'number'){
             return el.valueAsNumber;

@@ -40,6 +40,23 @@ var DOM_PROPERTY_SET = {};
 })();
 
 
+function updateAttributes(node){
+    "use strict";
+    var el = node.el;
+    var properties = ['value','checked', 'selected', 'selectedIndex', 'valueAsNumber', 'valueAsNumber'], i, key;
+    if(el.tagName in {SELECT:1, INPUT:1, TEXTAREA: 1}){
+        var attrs = node.attrs || {};
+        for(i=0; i<properties.length; i++){
+            key = properties[i];
+            if(attrs.hasOwnProperty(key)) {
+                attrs[key] = el[key];
+            }
+        }
+        node.attrs = attrs;
+    }
+}
+
+
 function domNamespace(tag, parent) {
     "use strict";
     if (tag === 'svg') {
@@ -123,6 +140,7 @@ function domAddEvent(node, el, eventName, callback) {
     if(callback){
         var func = function (event) {
             event = dom.normalizeEvent(event);
+            updateAttributes(node);
             callback.call(node.owner, event);
             redraw();
         };
@@ -688,7 +706,7 @@ function patchChildNodes(stack, parentNode, owner, src, dst){
     l = dst.length;
     for(i=0; i<l; i++){
         dstChild = dst[i];
-        if(0 && dstChild.key != null){//jshint ignore: line
+        if(dstChild.key != null){//jshint ignore: line
             if(!childMap){
                 childMap = getChildNodesMap(src);
             }
