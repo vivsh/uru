@@ -40,9 +40,8 @@ var DOM_PROPERTY_SET = {};
 })();
 
 
-function updateAttributes(node){
+function updateAttributes(node, el){
     "use strict";
-    var el = node.el;
     var properties = ['value','checked', 'selected', 'selectedIndex', 'valueAsNumber', 'valueAsNumber'], i, key;
     if(el.tagName in {SELECT:1, INPUT:1, TEXTAREA: 1}){
         var attrs = node.attrs || {};
@@ -140,7 +139,7 @@ function domAddEvent(node, el, eventName, callback) {
     if(callback){
         var func = function (event) {
             event = dom.normalizeEvent(event);
-            updateAttributes(node);
+            updateAttributes(node, el);
             callback.call(node.owner, event);
             redraw();
         };
