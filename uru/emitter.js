@@ -72,7 +72,7 @@ var Emitter = {
             component = component.getParent ? component.getParent() : null;
         }
         if(defaultHandler && !event.isDefaultPrevented()){
-            defaultHandler.call(options.context, event);
+            defaultHandler(event);
         }
         return event;
     },

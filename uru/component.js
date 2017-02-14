@@ -26,6 +26,7 @@ function Component(attrs, owner){
 
 
 Component.prototype = {
+    initialize: function(){},
     constructor: Component,
     render: function(ctx, content){
         "use strict";

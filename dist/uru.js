@@ -543,6 +543,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 	Component.prototype = {
+	    initialize: function(){},
 	    constructor: Component,
 	    render: function(ctx, content){
 	        "use strict";
@@ -815,7 +816,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var func = function (event) {
 	            event = dom.normalizeEvent(event);
 	            updateAttributes(node, el);
-	            callback.call(node.owner, event);
+	            callback(event);
 	            redraw();
 	        };
 	        events[eventName] = func;
@@ -1938,7 +1939,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            component = component.getParent ? component.getParent() : null;
 	        }
 	        if(defaultHandler && !event.isDefaultPrevented()){
-	            defaultHandler.call(options.context, event);
+	            defaultHandler(event);
 	        }
 	        return event;
 	    },

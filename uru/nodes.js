@@ -140,7 +140,7 @@ function domAddEvent(node, el, eventName, callback) {
         var func = function (event) {
             event = dom.normalizeEvent(event);
             updateAttributes(node, el);
-            callback.call(node.owner, event);
+            callback(event);
             redraw();
         };
         events[eventName] = func;
