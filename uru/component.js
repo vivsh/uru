@@ -59,7 +59,7 @@ Component.prototype = {
                     if(key.substr(0, 2) === 'on'){
                         eventName = key.substr(2);
                         if(eventName in events){
-                            this.off(eventName, value);
+                            this.off(eventName, events[eventName]);
                             delete events[eventName];
                         }
                         if(value){

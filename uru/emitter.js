@@ -31,7 +31,7 @@ EmitterEvent.prototype = {
 }
 
 var Emitter = {
-        on: function(name, callback){
+    on: function(name, callback){
         "use strict";
         var callbacks = this.$handlers;
         if(!callbacks){
@@ -54,6 +54,7 @@ var Emitter = {
         }else if(argc === 1){
             delete listeners[name];
         }else{
+            var ls = this.$handlers[name];
             utils.remove(listeners[name], callback);
         }
         return this;

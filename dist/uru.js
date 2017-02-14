@@ -576,7 +576,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                    if(key.substr(0, 2) === 'on'){
 	                        eventName = key.substr(2);
 	                        if(eventName in events){
-	                            this.off(eventName, value);
+	                            this.off(eventName, events[eventName]);
 	                            delete events[eventName];
 	                        }
 	                        if(value){
@@ -1898,7 +1898,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 	var Emitter = {
-	        on: function(name, callback){
+	    on: function(name, callback){
 	        "use strict";
 	        var callbacks = this.$handlers;
 	        if(!callbacks){
@@ -1921,6 +1921,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }else if(argc === 1){
 	            delete listeners[name];
 	        }else{
+	            var ls = this.$handlers[name];
 	            utils.remove(listeners[name], callback);
 	        }
 	        return this;
