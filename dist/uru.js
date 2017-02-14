@@ -1192,11 +1192,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(this === src){
 	            return;
 	        }
-	        var comp = this.component = src.component;
+	        var comp = this.component = src.component, key, value, attrs;
 	        if(comp.$owner !== owner){
 	            comp.$own(owner);
 	        }
 	        comp.$tag = this;
+	        attrs = src.attrs;
+	        for(key in attrs){
+	            if(attrs.hasOwnProperty(key) && !(key in this.attrs)){
+	                delete comp.context[key];
+	            }
+	        }
 	        comp.set(this.attrs);
 	        this.el = src.el;
 	        this.children = src.children;
