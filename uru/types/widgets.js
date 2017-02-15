@@ -124,11 +124,14 @@ function widget(name, definition){
             }
             attrs = utils.assign({
                 type: "datetime-local",
-                style: {display: "inline", width: "auto"}
             }, attrs);
-            return u("div", [
-                u("-input", utils.assign(attrs, {type:"date", name: name+"_date"})),
-                u("-input", utils.assign(attrs, {type:"time", step: 60, name: name+"_time"})),
+            return u("div", {style: "display: table; width: 100%"}, [
+                u("label", {style: "display: table-cell; width: 50%"},
+                    u("-input", utils.assign({placeholder: "dd/mm/yyyy"}, attrs, {id: attrs.id+"_date", type:"date", name: name+"_date"}))
+                ),
+                u("label", {style: "display: table-cell; width: 50%"},
+                    u("-input", utils.assign({placeholder: "hh:mm"}, attrs, {id: attrs.id+"_time", type:"time", step: 60, name: name+"_time"}))
+                )
             ]);
         }
     });

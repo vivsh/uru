@@ -2334,6 +2334,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	        "use strict";
 	        return this.value == null;//jshint ignore:line
 	    },
+	    set: function (value) {
+	        "use strict";
+	        var values = {};
+	        values[this.name] = value;
+	        return this.form.updateData(values);
+	    },
 	    read: function (data) {
 	        "use strict";
 	        var value = this.widget.read(this.name, data);
@@ -2539,6 +2545,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    getData: function () {
 	        "use strict";
 	        return this.data;
+	    },
+	    updateData: function (values) {
+	        "use strict";
+	        this.setData(utils.assign({}, this.data, values));
 	    },
 	    setData: function (data, isHtml) {
 	        "use strict";
@@ -2799,11 +2809,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	            attrs = utils.assign({
 	                type: "datetime-local",
-	                style: {display: "inline", width: "auto"}
 	            }, attrs);
-	            return u("div", [
-	                u("-input", utils.assign(attrs, {type:"date", name: name+"_date"})),
-	                u("-input", utils.assign(attrs, {type:"time", step: 60, name: name+"_time"})),
+	            return u("div", {style: "display: table; width: 100%"}, [
+	                u("label", {style: "display: table-cell; width: 50%"},
+	                    u("-input", utils.assign({placeholder: "dd/mm/yyyy"}, attrs, {id: attrs.id+"_date", type:"date", name: name+"_date"}))
+	                ),
+	                u("label", {style: "display: table-cell; width: 50%"},
+	                    u("-input", utils.assign({placeholder: "hh:mm"}, attrs, {id: attrs.id+"_time", type:"time", step: 60, name: name+"_time"}))
+	                )
 	            ]);
 	        }
 	    });

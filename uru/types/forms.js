@@ -56,6 +56,12 @@ var BoundField = utils.extend.call(Object, {
         "use strict";
         return this.value == null;//jshint ignore:line
     },
+    set: function (value) {
+        "use strict";
+        var values = {};
+        values[this.name] = value;
+        return this.form.updateData(values);
+    },
     read: function (data) {
         "use strict";
         var value = this.widget.read(this.name, data);
@@ -261,6 +267,10 @@ var Form = utils.extend.call(Object, {
     getData: function () {
         "use strict";
         return this.data;
+    },
+    updateData: function (values) {
+        "use strict";
+        this.setData(utils.assign({}, this.data, values));
     },
     setData: function (data, isHtml) {
         "use strict";
