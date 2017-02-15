@@ -107,7 +107,11 @@ function widget(name, definition){
             if(!date || !time){
                 return '';
             }
-            console.log(date, time);
+            date.setHours(time.getHours());
+            date.setMinutes(time.getMinutes());
+            date.setSeconds(time.getSeconds());
+            date.setMilliseconds(time.getMilliseconds());
+            return date;
         },
         render: function (attrs) {
             var value = attrs.value;

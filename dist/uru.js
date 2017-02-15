@@ -2536,6 +2536,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        "use strict";
 	        return this.errors.get('__all__').concat(this.errors.get('non_field_errors'));
 	    },
+	    getData: function () {
+	        "use strict";
+	        return this.data;
+	    },
 	    setData: function (data, isHtml) {
 	        "use strict";
 	        data = data || {};
@@ -2778,7 +2782,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	            if(!date || !time){
 	                return '';
 	            }
-	            console.log(date, time);
+	            date.setHours(time.getHours());
+	            date.setMinutes(time.getMinutes());
+	            date.setSeconds(time.getSeconds());
+	            date.setMilliseconds(time.getMilliseconds());
+	            return date;
 	        },
 	        render: function (attrs) {
 	            var value = attrs.value;
@@ -3262,7 +3270,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if(!value){
 	            return value;
 	        }
-	        return value.isISOString();
+	        return value.toISOString();
 	    },
 	    getWidget: function () {
 	        "use strict";

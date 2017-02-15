@@ -259,7 +259,7 @@ define("datetime", {
         if(!value){
             return value;
         }
-        return value.isISOString();
+        return value.toISOString();
     },
     getWidget: function () {
         "use strict";
