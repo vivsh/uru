@@ -523,8 +523,12 @@ ComponentNode.prototype = {
         comp.$tag = this;
         attrs = src.attrs;
         for(key in attrs){
-            if(attrs.hasOwnProperty(key) && !(key in this.attrs)){
-                delete comp.context[key];
+            if(attrs.hasOwnProperty(key)){
+                if(key.substr(0, 2) === 'on'){
+                    comp.off(attrs[key.substr(2)]);
+                }else{
+                    delete comp.context[key];
+                }
             }
         }
         comp.set(this.attrs);
