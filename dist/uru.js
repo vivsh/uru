@@ -2315,6 +2315,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	                this.form.fieldSilence[this.name] = !!value;
 	            }
 	        },
+	        hidden: {
+	            get: function () {
+	                "use strict";
+	                return this.widget.hidden;
+	            }
+	        },
 	        errors: {
 	            get: function () {
 	                "use strict";

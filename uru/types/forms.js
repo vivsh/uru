@@ -33,6 +33,12 @@ var BoundField = utils.extend.call(Object, {
                 this.form.fieldSilence[this.name] = !!value;
             }
         },
+        hidden: {
+            get: function () {
+                "use strict";
+                return this.widget.hidden;
+            }
+        },
         errors: {
             get: function () {
                 "use strict";
